@@ -11,16 +11,14 @@
 #define SVS_IN_VIEW 0x22
 #define	BASIC_DATA_SET 0x20
 
-struct _data_set
 typedef struct _data_set {
-	char head[16];
+	char header[16];
 	uint16_t lenght, number;
 	uint32_t checksum;
 	uint64_t position;
-	} data_set;
+	} gsDataSet;
 
 // reads a compleet data set file
-int read_header(data_set * p);
-int read_raw_meas(data_set * p);
+size_t gsParseRawData(gsDataSet * p, FILE *file_ptr);
 
 #endif
