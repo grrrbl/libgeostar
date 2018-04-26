@@ -15,10 +15,10 @@ typedef struct _data_set {
 	char header[16];
 	uint16_t lenght, number;
 	uint32_t checksum;
-	uint64_t position;
 	} gsDataSet;
 
 // reads a compleet data set file
 size_t gsParseRawData(gsDataSet * p, FILE *file_ptr);
+int32_t gsGetNumberDataSet(FILE *file_p);
 
 #endif
