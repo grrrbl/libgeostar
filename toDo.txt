@@ -1,0 +1,3 @@
+* implement cheksum test in read func
+* correct parse func loop error
+* implement read for 0x21, 0x22

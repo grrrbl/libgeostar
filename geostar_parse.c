@@ -6,12 +6,14 @@ uint32_t gsGenerateChecksum(uint32_t data_field[], uint16_t lenght){
 	return data_field[lenght] ^ gsGenerateChecksum(data_field, lenght-1); 
 	}
 
-size_t gsParseRawData(gsDataSet * p, FILE *file_p ){
-	size_t pos;
+long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
 	fread(p->header,1,8,file_p);
 	fread(&(p->number),1,2,file_p);
-	pos = fread(&(p->lenght),1,2,file_p);
-	return pos;
+	fread(&(p->lenght),1,2,file_p);
+	fseek(file_p,p->lenght*WORD,SEEK_CUR);
+	fread(&(p->checksum),1,WORD,file_p);
+	p->data_position = ftell(file_p);
+	return ftell(file_p);
 	}
 
 uint32_t gsChecksum(gsDataSet * p, FILE *file_p ){
@@ -27,12 +29,12 @@ uint32_t gsParseGCBDS(gsDataSet * p, gsDataSet_0x20 *p0, FILE *file_p ){
 	if (file_p == NULL)
 		return -1;
 
-	fseek(file_p, p->data_position,SEEK_SET); 
+	fseek(file_p, p->data_position+3*WORD,SEEK_SET); 
 	
 	for(int i = 0; i<5; i++){
 		fread(&(p0->val_double[i]),1,2*WORD,file_p);
 		}
-	for(int i = 5; i<7; i++){
+	for(int i = 0; i<2; i++){
 		fread(&(p0->val_uint[i]),1,WORD,file_p);
 		}
 	for(int i = 7; i<12; i++){
