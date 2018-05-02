@@ -4,12 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-
-#define WORD 4
-#define CHECKSUM 4
-#define RAW_MEASUREMENT 0x10
-#define SVS_IN_VIEW 0x22
-#define	BASIC_DATA_SET 0x20
+#include "geostar_defs.h"
 
 typedef struct _data_set {
 	char header[16];
@@ -17,11 +12,6 @@ typedef struct _data_set {
 	uint32_t checksum;
 	long int data_position;
 	} gsDataSet;
-
-typedef struct _data_set_0x20 {
-	double val_double[12];
-	uint32_t val_uint[4];
-	} gsDataSet_0x20;
 
 // reads a compleet data set file
 uint32_t gsGenerateChecksum(uint32_t data_field[], uint16_t lenght);
