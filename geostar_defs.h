@@ -6,6 +6,7 @@
 #define RAW_MEASUREMENT 0x10
 #define SVS_IN_VIEW 0x22
 #define BASIC_DATA_SET 0x20
+#define MAX_MESSAGE_LENGHT 340
 
 
 typedef struct _data_set_0x10 {

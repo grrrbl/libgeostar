@@ -1,4 +1,51 @@
 #include "geostar_parse.h"
+
+void appendFIFO(char *data, ringbuffer_t *buffer)
+{
+	if(buffer)
+	{
+	buffer->fifo[buffer->writeIndex] = *data;
+	buffer->writeIndex = buffer->writeIndex++ % (FIFO_SIZE + 1);
+	if(buffer->readIndex == buffer->writeIndex)
+		buffer->readIndex = buffer->readIndex ++ % (FIFO_SIZE + 1);
+	}
+}
+
+int  readFIFO(char *data, ringbuffer_t *buffer)
+{
+	if(buffer)
+	{
+		if(buffer->readIndex != buffer->writeIndex)
+		{
+			*data = buffer->fifo[buffer->readIndex];
+			buffer->readIndex = buffer->readIndex++ % (FIFO_SIZE + 1);
+			return 1;
+		}
+		else
+			return -1;
+	} else
+		return -1;  
+}
+
+int * checkBeginDataSet(char *string){
+	switch(string[0]){
+		case 'G':
+			if(string[1] == 'E')
+				return 0;
+		case 'E':
+			if(string[1] == 'O')
+				return 1;
+		case 'O':
+			if(string[1] == 'S')
+				return 2;
+		case 'S':
+			if(string[1] == 't')
+				return 3;
+		default:
+			return 255;
+	}
+}
+
 uint32_t gsGenerateChecksum(uint32_t data_field[], uint16_t lenght){
 	if (lenght < 2){
 		return (data_field[1] ^ data_field[0]);

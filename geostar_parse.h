@@ -6,6 +6,21 @@
 #include <stdint.h>
 #include "geostar_defs.h"
 
+#define FIFO_SIZE 1024
+	
+// definitions for ringbuffer
+typedef struct
+{
+        int readIndex;
+        int writeIndex;
+        char fifo[FIFO_SIZE];
+} ringbuffer_t;
+
+void  appendFIFO(char *data, ringbuffer_t *buffer);
+int   readFIFO(char *data, ringbuffer_t *buffer);
+int   searchFIFO(ringbuffer_t *buffer);
+int * checkBeginDataSet(char *string);
+
 typedef struct _data_set {
 	char header[16];
 	uint16_t lenght, number;
