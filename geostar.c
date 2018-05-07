@@ -1,4 +1,4 @@
-#include "geostar_parse.h"
+#include "geostar.h"
 
 ringbuffer_t *gsRngbInitialize()
 {
@@ -9,13 +9,13 @@ ringbuffer_t *gsRngbInitialize()
 	return ringbuffer; 
 }
 
-int gsRngbAppend(char *data, ringbuffer_t *buffer)
+int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
 {
 	if(buffer)
 	{
-	buffer->fifo[buffer->writeIndex] = *data;
+	buffer->fifo[buffer->writeIndex] = word;
 	//check for DS begin
-	if (*data == 'E')
+	if ( word == 'E')
 		if (buffer->fifo[buffer->writeIndex - 1] == 'G')
 			buffer->dsPos = buffer->writeIndex - 1;
 	buffer->writeIndex = buffer->writeIndex++ % (FIFO_SIZE + 1);
@@ -26,13 +26,13 @@ int gsRngbAppend(char *data, ringbuffer_t *buffer)
     return -1;
 }
 
-int gsRngbRead(char *data, ringbuffer_t *buffer)
+int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
 {
 	if(buffer)
 	{
 		if(buffer->readIndex != buffer->writeIndex)
 		{
-			*data = buffer->fifo[buffer->readIndex];
+			dataset[0] = buffer->fifo[buffer->readIndex];
 			buffer->readIndex = buffer->readIndex++ % (FIFO_SIZE + 1);
 			return 1;
 		}
@@ -44,7 +44,7 @@ int gsRngbRead(char *data, ringbuffer_t *buffer)
 
 /* start searching for a dataset from the current writeIndex    *
  * return statu:                                                */
-int gsRngbSearch(ringbuffer_t *rngb)
+int16_t gsRngbSearch(ringbuffer_t *rngb)
 {
     uint16_t pos = rngb->writeIndex;
     for(int i=0;i<32;i++)
@@ -58,6 +58,15 @@ int gsRngbSearch(ringbuffer_t *rngb)
     return -1;
 }
 
+int16_t gsRngbDataSetComplete(ringbuffer_t *rngb)
+{
+    /*
+    if data set write > data set start + lenght
+    gsCheckCheckSum;
+    return pos (in ringbuffer)
+    */
+}
+
 int checkDSComplete(ringbuffer_t *buffer)
 {
 	uint16_t lenghth = buffer->dsPos + 6;
@@ -67,12 +76,17 @@ int checkDSComplete(ringbuffer_t *buffer)
 		return 1;
 }
 
-uint32_t gsGenerateChecksum(uint32_t data_field[], uint16_t lenght){
-	if (lenght < 2){
-		return (data_field[1] ^ data_field[0]);
-		}
-	return data_field[lenght] ^ gsGenerateChecksum(data_field, lenght-1); 
-	}
+uint32_t gsGenChecksum(char *dataset, int16_t lenghth){
+    if (lenghth > MAX_MESSAGE_LENGHTH)
+        return -1;
+    if (lenghth < 2){
+        //return (((uint32_t *)dataset)[1] ^ dataset_typecast[0]);
+        return (((uint32_t *)dataset)[1] ^ ((uint32_t *)dataset)[0]);
+    }
+    else {
+        return ((uint32_t *)dataset)[lenghth] ^ gsGenChecksum(dataset, lenghth - 1); 
+    }
+}
 
 long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
 	fread(p->header,1,8,file_p);
@@ -84,23 +98,23 @@ long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
 	return ftell(file_p);
 	}
 
-uint32_t gsCheckChecksum(gsDataSet * p, FILE *file_p ){
-//	fseek(file_p, p->data_position + 3*WORD, SEEK_SET);
+/*uint32_t gsCheckChecksum(gsDataSet * p, FILE *file_p ){
 	uint32_t data_field[p->lenght];
 	for(int i; i <= p->lenght;i++){
 		fread(&(data_field[i]),1,WORD,file_p);
 		}
 	
 	}
-
-uint32_t gsParseGCBDS(gsDataSet * p, gsDataSet_0x20 *p0, FILE *file_p ){
-	if (file_p == NULL)
+*/
+int8_t gsParse0x20(char *dataset, gsDataSet_0x20 *ds0x22)
+{
+	if (dataset == NULL)
 		return -1;
 
 //	fseek(file_p, p->data_position+3*WORD,SEEK_SET); 
-	
+	/*
 	for(int i = 0; i<5; i++){
-		fread(&(p0->val_double[i]),1,2*WORD,file_p);
+		fread(&(ds0x22->val_double[i]),1,2*WORD,file_p);
 		}
 	for(int i = 0; i<2; i++){
 		fread(&(p0->val_uint[i]),1,WORD,file_p);
@@ -113,7 +127,7 @@ uint32_t gsParseGCBDS(gsDataSet * p, gsDataSet_0x20 *p0, FILE *file_p ){
 		}
 	for(int i = 14; i<16; i++){
 		fread(&(p0->val_double[i]),1,2*WORD,file_p);
-		}
+		}*/
 	}
 
 int32_t gsGetNumberDataSet(FILE *file_p){
