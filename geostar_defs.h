@@ -8,26 +8,34 @@
 #define BASIC_DATA_SET 0x20
 #define MAX_MESSAGE_LENGHT 340
 
+#define FIFO_SIZE 1023
+
+typedef struct _data_set {
+    char header[16]; //kan eigentlich raus, aber zum debuggen ganz praktisch
+    uint16_t lenght, number;
+    uint32_t checksum;
+    uint16_t dsPos;
+} gsDataSet;
 
 typedef struct _data_set_0x10 {
 	double val_double[12];
 	uint32_t val_uint[4];
-	} gsDataSet_0x10;
+} gsDataSet_0x10;
 
 typedef struct _data_set_0x20 {
 	double val_double[12];
 	uint32_t val_uint[4];
-	} gsDataSet_0x20;
+} gsDataSet_0x20;
 
 typedef struct _data_set_0x21 {
 	double val_double[12];
 	uint32_t val_uint[4];
-	} gsDataSet_0x21;
+} gsDataSet_0x21;
 
 typedef struct _data_set_0x22 {
 	double val_double[12];
 	uint32_t val_uint[4];
-	} gsDataSet_0x22;
+} gsDataSet_0x22;
 
 #endif
 
