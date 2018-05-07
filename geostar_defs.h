@@ -10,12 +10,13 @@
 
 #define FIFO_SIZE 1023
 
-typedef struct _data_set {
+typedef struct {
     char header[16]; //kan eigentlich raus, aber zum debuggen ganz praktisch
+    uint32_t data[MAX_MESSAGE_LENGHTH];
     uint16_t lenght, number;
     uint32_t checksum;
-    uint16_t dsPos;
-} gsDataSet;
+    uint16_t dsPos; //kann raus
+} _gsDataSet;
 
 typedef struct _data_set_0x10 {
 	double val_double[12];

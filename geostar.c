@@ -1,12 +1,11 @@
 #include "geostar.h"
+const char *MSG_BEGIN = "GEOSr2PS";
 
-ringbuffer_t *gsRngbInitialize()
+void gsRngbInitialize(ringbuffer_t *ringbuffer)
 {
-	ringbuffer_t *ringbuffer;
-	ringbuffer->readIndex = -1;
+	ringbuffer->readIndex = 0;
 	ringbuffer->writeIndex = 0;
 	ringbuffer->dsPos = -1;
-	return ringbuffer; 
 }
 
 int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
@@ -15,15 +14,25 @@ int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
 	{
 	buffer->fifo[buffer->writeIndex] = word;
 	//check for DS begin
-	if ( word == 'E')
-		if (buffer->fifo[buffer->writeIndex - 1] == 'G')
-			buffer->dsPos = buffer->writeIndex - 1;
-	buffer->writeIndex = buffer->writeIndex++ % (FIFO_SIZE + 1);
+	if ( word == 'P')
+        {
+        int count = 0;
+        for(int i = 0; i<7; i++)
+            {
+            if(buffer->fifo[buffer->writeIndex - i] == MSG_BEGIN[6-i])
+                count++;
+            }
+		if (count > 5)
+            buffer->dsPos = buffer->writeIndex - 6;
+        }
+    
+    buffer->writeIndex = (buffer->writeIndex + 1) % (FIFO_SIZE + 1);
 	if(buffer->readIndex == buffer->writeIndex)
-		buffer->readIndex = buffer->readIndex ++ % (FIFO_SIZE + 1);
+		buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
 	}
-    else
-    return -1;
+    else{
+        return -1;
+    }
 }
 
 int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
@@ -33,7 +42,7 @@ int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
 		if(buffer->readIndex != buffer->writeIndex)
 		{
 			dataset[0] = buffer->fifo[buffer->readIndex];
-			buffer->readIndex = buffer->readIndex++ % (FIFO_SIZE + 1);
+			buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
 			return 1;
 		}
 		else
@@ -77,8 +86,8 @@ int checkDSComplete(ringbuffer_t *buffer)
 }
 
 uint32_t gsGenChecksum(char *dataset, int16_t lenghth){
-    if (lenghth > MAX_MESSAGE_LENGHTH)
-        return -1;
+    if (lenghth > MAX_MESSAGE_LENGHTH || (sizeof(dataset) / 4) < lenghth)
+        return 0;
     if (lenghth < 2){
         //return (((uint32_t *)dataset)[1] ^ dataset_typecast[0]);
         return (((uint32_t *)dataset)[1] ^ ((uint32_t *)dataset)[0]);
@@ -88,15 +97,17 @@ uint32_t gsGenChecksum(char *dataset, int16_t lenghth){
     }
 }
 
+/*
 long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
 	fread(p->header,1,8,file_p);
 	fread(&(p->number),1,2,file_p);
 	fread(&(p->lenght),1,2,file_p);
 	fseek(file_p,p->lenght*WORD,SEEK_CUR);
 	fread(&(p->checksum),1,WORD,file_p);
-//	p->data_position = ftell(file_p);
+	p->data_position = ftell(file_p);
 	return ftell(file_p);
 	}
+*/
 
 /*uint32_t gsCheckChecksum(gsDataSet * p, FILE *file_p ){
 	uint32_t data_field[p->lenght];

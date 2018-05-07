@@ -1,5 +1,5 @@
-#ifndef __PARSE_GEOSTAR_BIN__
-#define __PARSE_GEOSTAR_BIN__
+#ifndef __GEOSTAR_LIB__
+#define __GEOSTAR_LIB__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,11 +11,12 @@ typedef struct
 {
         int32_t readIndex;
         int32_t writeIndex;
-	uint32_t dsPos;
+	int32_t dsPos;
         char fifo[FIFO_SIZE];
 } ringbuffer_t;
 
 // all functions concering operations with the ringbuffer are labeled gsRngb... ringbuffer_t *gsRngbInitialize();
+void gsRngbInitialize(ringbuffer_t *ringbuffer);
 int8_t gsRngbAppend(ringbuffer_t *buffer, char byte);
 int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
 int16_t gsRngbSearch(ringbuffer_t *rngb);
