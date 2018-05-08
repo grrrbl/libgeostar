@@ -11,7 +11,8 @@ typedef struct
 {
         int32_t readIndex;
         int32_t writeIndex;
-	int32_t dsPos;
+        int32_t dsLenghth;
+        int32_t dsPos;
         char fifo[FIFO_SIZE];
 } ringbuffer_t;
 
@@ -19,6 +20,7 @@ typedef struct
 void gsRngbInitialize(ringbuffer_t *ringbuffer);
 int8_t gsRngbAppend(ringbuffer_t *buffer, char byte);
 int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
+int8_t gsRngbReadChar(ringbuffer_t *buffer, char *data);
 int16_t gsRngbSearch(ringbuffer_t *rngb);
 int16_t gsRngbDataSetComplete(ringbuffer_t *rngb);
 

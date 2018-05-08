@@ -36,20 +36,37 @@ int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
 }
 
 int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
-{
-	if(buffer)
-	{
-		if(buffer->readIndex != buffer->writeIndex)
+{   
+    if(!buffer)
+        return -2;
+
+    uint8_t count = 0;
+    if (buffer->readIndex != buffer->writeIndex){   
+        while(buffer->readIndex != buffer->writeIndex || count < sizeof(dataset))
 		{
-			dataset[0] = buffer->fifo[buffer->readIndex];
-			buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
-			return 1;
+            dataset[count] = buffer->fifo[buffer->readIndex];
+            buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
+            count++;
 		}
-		else
-			return -1;
-	} else
-		return -1;  
+        return count;
+    } else
+        return -1;
 }
+
+int8_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
+{
+    if(!rngb)
+        return -2;
+    if(rngb->readIndex != rngb->writeIndex)
+    {
+        *data = rngb->fifo[rngb->readIndex];
+        rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
+        return 1;
+    }
+    else
+        return -1;
+}
+
 
 /* start searching for a dataset from the current writeIndex    *
  * return statu:                                                */
@@ -69,11 +86,36 @@ int16_t gsRngbSearch(ringbuffer_t *rngb)
 
 int16_t gsRngbDataSetComplete(ringbuffer_t *rngb)
 {
-    /*
-    if data set write > data set start + lenght
-    gsCheckCheckSum;
-    return pos (in ringbuffer)
-    */
+    /* chekc if it's save to run function                               */
+    if (!rngb)
+        return -2;
+
+    if (rngb->writeIndex <= rngb->dsPos + 16)
+        return -1;
+
+    /* write data to local cache, so pointer arithemitc doesn't break   *
+     * at the end of the ringbuffer (writeIndex - 12 > FIFO_SIZE)       *
+     * Save ringbuffer position and reset after reading, so we don't    *
+     * change teh ringbuffer read position                              */
+    char data[18];
+    int32_t save_readIndex = rngb->readIndex;
+    rngb->readIndex = rngb->dsPos;
+    for (int i = 0; i < sizeof(data); i++)
+        gsRngbReadChar(rngb, &data[i]);
+    rngb->readIndex = save_readIndex;    
+
+    /* change type of data to type of var lenghth (16 bit), skip first  *
+     * bytes with the header titel and set lenghth                      */
+    uint16_t lenghth, msg_type;
+    lenghth = ((uint16_t *)data)[5];
+    msg_type = ((uint16_t *)data)[4];
+    if (lenghth > 0){
+        printf("%x \n", msg_type);
+        rngb->dsLenghth = (int32_t)lenghth;
+        return lenghth;
+    }
+    else
+        return -2;
 }
 
 int checkDSComplete(ringbuffer_t *buffer)
