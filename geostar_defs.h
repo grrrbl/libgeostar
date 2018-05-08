@@ -2,7 +2,8 @@
 #define __GEOSTAR_DEFS__
 
 #define WORD 4
-#define CHECKSUM 4
+#define MSG_CHECKSUM 4
+#define MSG_HEADER 12
 #define RAW_MEASUREMENT 0x10
 #define SVS_IN_VIEW 0x22
 #define BASIC_DATA_SET 0x20

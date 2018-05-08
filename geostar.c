@@ -1,4 +1,5 @@
 #include "geostar.h"
+#define DEBUG
 const char *MSG_BEGIN = "GEOSr2PS";
 
 void gsRngbInitialize(ringbuffer_t *ringbuffer)
@@ -84,12 +85,13 @@ int16_t gsRngbSearch(ringbuffer_t *rngb)
     return -1;
 }
 
-int16_t gsRngbDataSetComplete(ringbuffer_t *rngb)
+int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
 {
-    /* chekc if it's save to run function                               */
+    /* check if it's save to run function                               */
     if (!rngb)
         return -2;
 
+    /* we want at least the header info */
     if (rngb->writeIndex <= rngb->dsPos + 16)
         return -1;
 
@@ -109,29 +111,80 @@ int16_t gsRngbDataSetComplete(ringbuffer_t *rngb)
     uint16_t lenghth, msg_type;
     lenghth = ((uint16_t *)data)[5];
     msg_type = ((uint16_t *)data)[4];
-    if (lenghth > 0){
-        printf("%x \n", msg_type);
+    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos - MSG_HEADER - MSG_CHECKSUM) / WORD;
+    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos - MSG_HEADER - MSG_CHECKSUM) % WORD;
+    if (lenghth > 0 && sum_lenghth < lenghth)
+      {
         rngb->dsLenghth = (int32_t)lenghth;
-        return lenghth;
-    }
+        rngb->dsType = (int32_t)msg_type;
+        return 0;
+      }
+    else if(lenghth == sum_lenghth && sum_lenghth_mod == 0)
+    //else if(lenghth == sum_lenghth)
+        return 1;
     else
-        return -2;
+        return -1;
 }
 
-int checkDSComplete(ringbuffer_t *buffer)
+int16_t
+gsRngbChecksum(ringbuffer_t *rngb)
 {
-	uint16_t lenghth = buffer->dsPos + 6;
-	if (buffer->dsPos + lenghth < buffer->writeIndex)
-//		gsCheckSum() gs checsum has to be rewroitten for the use of buffer.
-//		add abstaction layer file io/data
-		return 1;
+    if(!rngb)
+        return -3;
+
+    /* load message into local buffer. msg[] has the lenghth of the message *
+     * plus Header plus one Word to save the transmitted checksum           */
+    int32_t save_readIndex = rngb->readIndex;
+    if(rngb->dsPos < 0)
+        return -2;
+    rngb->readIndex = rngb->dsPos;
+    if(!(rngb->dsLenghth > 0))
+        return -2;
+    int32_t msg_lenghth = (rngb->dsLenghth + 5) * WORD;
+    char msg[msg_lenghth];
+#ifdef DEBUG 
+    printf("size %i \n", sizeof(msg));
+    printf("lenghth %i \n", rngb->dsLenghth);
+#endif
+    for(int i = 0; i < rngb->writeIndex; i++)
+        gsRngbReadChar(rngb, &msg[i]);
+    rngb->readIndex = save_readIndex;
+
+    /* compute and compare checksum */
+    if(rngb->dsLenghth > MAX_MESSAGE_LENGHTH)
+        return 0;
+    uint32_t checksum = gsRngbGenChecksum(msg,rngb->dsLenghth + 2);
+    if(checksum == ((uint32_t *)msg)[rngb->dsLenghth + 3] )
+        {
+#ifdef DEBUG
+        printf("checksum: %x\n",checksum);
+#endif
+        return 1;
+        }
+    else
+        {
+#ifdef DEBUG
+        printf("checksum: %x\n",checksum);
+#endif
+        return -1;
+        }
 }
 
-uint32_t gsGenChecksum(char *dataset, int16_t lenghth){
+uint32_t
+gsRngbGenChecksum(char *msg, int32_t lenghth)
+{
+    if (lenghth < 2){
+        return ((((uint32_t *)msg)[1]) ^ (((uint32_t *)msg)[0]));
+    }
+    return ((((uint32_t *)msg)[lenghth]) ^ (gsRngbGenChecksum(msg, lenghth - 1))); 
+}
+
+uint32_t
+gsGenChecksum(char *dataset, int16_t lenghth)
+{
     if (lenghth > MAX_MESSAGE_LENGHTH || (sizeof(dataset) / 4) < lenghth)
         return 0;
     if (lenghth < 2){
-        //return (((uint32_t *)dataset)[1] ^ dataset_typecast[0]);
         return (((uint32_t *)dataset)[1] ^ ((uint32_t *)dataset)[0]);
     }
     else {
@@ -196,7 +249,7 @@ int32_t gsGetNumberDataSet(FILE *file_p){
 		fseek(file_p,2*WORD,SEEK_CUR);
 		ds_read = fread(&number,1,2,file_p);
 		fread(&lenght,1,2,file_p);
-		fseek(file_p,lenght*WORD+CHECKSUM,SEEK_CUR);
+		fseek(file_p,lenght*WORD+MSG_CHECKSUM,SEEK_CUR);
 		ds_count++;
 		printf("Nummer code %x \n",number);
 	}while(ds_read > 0);

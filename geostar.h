@@ -9,11 +9,13 @@
 // definitions for ringbuffer
 typedef struct 
 {
-        int32_t readIndex;
-        int32_t writeIndex;
-        int32_t dsLenghth;
-        int32_t dsPos;
-        char fifo[FIFO_SIZE];
+    int32_t readIndex;
+    int32_t writeIndex;
+    int32_t dsLenghth;
+    int32_t dsType;
+    int32_t dsPos;
+    int32_t dsPosNext;
+    char fifo[FIFO_SIZE];
 } ringbuffer_t;
 
 // all functions concering operations with the ringbuffer are labeled gsRngb... ringbuffer_t *gsRngbInitialize();
@@ -22,7 +24,9 @@ int8_t gsRngbAppend(ringbuffer_t *buffer, char byte);
 int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
 int8_t gsRngbReadChar(ringbuffer_t *buffer, char *data);
 int16_t gsRngbSearch(ringbuffer_t *rngb);
-int16_t gsRngbDataSetComplete(ringbuffer_t *rngb);
+int16_t gsRngbDataSetEnd(ringbuffer_t *rngb);
+int16_t gsRngbChecksum(ringbuffer_t *rngb);
+uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
 
 // all functions concering operations with data sets in the ring buffer are labeled gsParse...
 char gaParseReturnType(char *dataset);
