@@ -6,7 +6,28 @@ void gsRngbInitialize(ringbuffer_t *ringbuffer)
 {
 	ringbuffer->readIndex = 0;
 	ringbuffer->writeIndex = 0;
-	ringbuffer->dsPos = -1;
+	ringbuffer->dsPos[0] = -1;
+}
+
+/* new version of init... */
+ringbuffer_t* 
+gsRngbInit(void)
+{
+    ringbuffer_t *rngb = malloc(sizeof(*rngb)); 
+    if(rngb != NULL)
+      {
+        rngb->readIndex = 0;
+	    rngb->writeIndex = 0;
+        rngb->dsNmbRead = 0;
+        rngb->dsNmbHead = 0;
+	    for(int i = 0;i < sizeof(rngb->dsPos);i++)
+          rngb->dsPos[i] = -1;
+	    for(int i = 0;i < sizeof(rngb->dsType);i++)
+          rngb->dsType[i] = -1;
+	    for(int i = 0;i < sizeof(rngb->dsLenghth);i++)
+          rngb->dsLenghth[i] = -1;
+      }
+    return rngb; 
 }
 
 int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
@@ -24,7 +45,8 @@ int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
                 count++;
             }
 		if (count > 5)
-            buffer->dsPos = buffer->writeIndex - 6;
+            buffer->dsPos[buffer->dsNmbHead] = buffer->writeIndex - 6;
+            //buffer->dsNmbHead = (buffer->dsNmbHead + 1) % 5;
         }
     
     buffer->writeIndex = (buffer->writeIndex + 1) % (FIFO_SIZE + 1);
@@ -92,7 +114,7 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
         return -2;
 
     /* we want at least the header info */
-    if (rngb->writeIndex <= rngb->dsPos + 16)
+    if (rngb->writeIndex <= rngb->dsPos[0] + 16)
         return -1;
 
     /* write data to local cache, so pointer arithemitc doesn't break   *
@@ -101,7 +123,7 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
      * change teh ringbuffer read position                              */
     char data[18];
     int32_t save_readIndex = rngb->readIndex;
-    rngb->readIndex = rngb->dsPos;
+    rngb->readIndex = rngb->dsPos[0];
     for (int i = 0; i < sizeof(data); i++)
         gsRngbReadChar(rngb, &data[i]);
     rngb->readIndex = save_readIndex;    
@@ -111,20 +133,40 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
     uint16_t lenghth, msg_type;
     lenghth = ((uint16_t *)data)[5];
     msg_type = ((uint16_t *)data)[4];
-    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos - MSG_HEADER - MSG_CHECKSUM) / WORD;
-    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos - MSG_HEADER - MSG_CHECKSUM) % WORD;
+    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos[0] - MSG_HEADER - MSG_CHECKSUM) / WORD;
+    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos[0] - MSG_HEADER - MSG_CHECKSUM) % WORD;
     if (lenghth > 0 && sum_lenghth < lenghth)
       {
-        rngb->dsLenghth = (int32_t)lenghth;
-        rngb->dsType = (int32_t)msg_type;
+        rngb->dsLenghth[0] = (int32_t)lenghth;
+        rngb->dsType[0] = (int32_t)msg_type;
         return 0;
       }
     else if(lenghth == sum_lenghth && sum_lenghth_mod == 0)
-    //else if(lenghth == sum_lenghth)
+      {
+        rngb->dsNmbHead = (rngb->dsNmbHead + 1) % 5; 
         return 1;
+      }
     else
         return -1;
 }
+
+/* this function is splitted from search end because more data operations are needed    *
+ * return -3: missing pointer to ringbuffer;                                            *
+ * return -2: found no starting point for data evaluation;                              *
+ * return -1: data set exeeded size                                                     *
+ * return  0: checksum mismatch                                                         *
+ * return  1: checksum ok, dataset complete                                             */
+
+/* util for gsRngbChecksum */
+uint32_t
+gsRngbGenChecksum(char *msg, int32_t lenghth)
+{
+    if (lenghth < 2){
+        return ((((uint32_t *)msg)[1]) ^ (((uint32_t *)msg)[0]));
+    }
+    return ((((uint32_t *)msg)[lenghth]) ^ (gsRngbGenChecksum(msg, lenghth - 1))); 
+}
+
 
 int16_t
 gsRngbChecksum(ringbuffer_t *rngb)
@@ -135,26 +177,26 @@ gsRngbChecksum(ringbuffer_t *rngb)
     /* load message into local buffer. msg[] has the lenghth of the message *
      * plus Header plus one Word to save the transmitted checksum           */
     int32_t save_readIndex = rngb->readIndex;
-    if(rngb->dsPos < 0)
+    if(rngb->dsPos[0] < 0)
         return -2;
-    rngb->readIndex = rngb->dsPos;
-    if(!(rngb->dsLenghth > 0))
+    rngb->readIndex = rngb->dsPos[0];
+    if(!(rngb->dsLenghth[0] > 0))
         return -2;
-    int32_t msg_lenghth = (rngb->dsLenghth + 5) * WORD;
+    int32_t msg_lenghth = (rngb->dsLenghth[0] + 5) * WORD;
     char msg[msg_lenghth];
 #ifdef DEBUG 
     printf("size %i \n", sizeof(msg));
-    printf("lenghth %i \n", rngb->dsLenghth);
+    printf("lenghth %i \n", rngb->dsLenghth[0]);
 #endif
     for(int i = 0; i < rngb->writeIndex; i++)
         gsRngbReadChar(rngb, &msg[i]);
     rngb->readIndex = save_readIndex;
 
     /* compute and compare checksum */
-    if(rngb->dsLenghth > MAX_MESSAGE_LENGHTH)
-        return 0;
-    uint32_t checksum = gsRngbGenChecksum(msg,rngb->dsLenghth + 2);
-    if(checksum == ((uint32_t *)msg)[rngb->dsLenghth + 3] )
+    if(rngb->dsLenghth[0] > MAX_MESSAGE_LENGHTH)
+        return -1;
+    uint32_t checksum = gsRngbGenChecksum(msg,rngb->dsLenghth[0] + 2);
+    if(checksum == ((uint32_t *)msg)[rngb->dsLenghth[0] + 3] )
         {
 #ifdef DEBUG
         printf("checksum: %x\n",checksum);
@@ -166,17 +208,8 @@ gsRngbChecksum(ringbuffer_t *rngb)
 #ifdef DEBUG
         printf("checksum: %x\n",checksum);
 #endif
-        return -1;
+        return 0;
         }
-}
-
-uint32_t
-gsRngbGenChecksum(char *msg, int32_t lenghth)
-{
-    if (lenghth < 2){
-        return ((((uint32_t *)msg)[1]) ^ (((uint32_t *)msg)[0]));
-    }
-    return ((((uint32_t *)msg)[lenghth]) ^ (gsRngbGenChecksum(msg, lenghth - 1))); 
 }
 
 uint32_t
