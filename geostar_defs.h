@@ -9,35 +9,43 @@
 #define BASIC_DATA_SET 0x20
 #define MAX_MESSAGE_LENGHTH 340
 
-#define FIFO_SIZE 1023
+#define FIFO_SIZE 1024
 
-typedef struct {
-    char header[16]; //kan eigentlich raus, aber zum debuggen ganz praktisch
-    uint32_t data[MAX_MESSAGE_LENGHTH];
-    uint16_t lenght, number;
+typedef struct gs_0x10 {
+} gs_0x10;
+
+typedef struct gs_0x20 {
+    uint16_t length, msg_type;
+    uint32_t msg_length;
+	double   position, latitude, longitude, height, geoidal_seperation;
+	uint32_t numbers_sv, receiver_status;
+    double   gdop, pdop, tdop, hdop, vdop;
+    uint32_t position_fix_valid_indicator, number_continuous_fixes;
+    double   speed, course;
     uint32_t checksum;
-    uint16_t dsPos; //kann raus
-} _gsDataSet;
+} gs_0x20;
 
-typedef struct _data_set_0x10 {
-	double val_double[12];
-	uint32_t val_uint[4];
-} gsDataSet_0x10;
+typedef struct gs_0x21 {
+    uint16_t lenghth, msg_type;
+    uint32_t checksum;
+    uint32_t receiver_status_word, receiver_configuration, 
+             uptime, time, empty1, empty2;
+} gs_0x21;
 
-typedef struct _data_set_0x20 {
-	double val_double[12];
-	uint32_t val_uint[4];
-} gsDataSet_0x20;
+/* consist of two parts, nested */
+typedef struct gs_0x22_sat{
+    char sv_number, channel_nr;
+    uint16_t carrier_frequency;
+    uint32_t word1, channel_status, snr, 
+             elevation, azimuth;
+} gs_0x22_sat;
 
-typedef struct _data_set_0x21 {
-	double val_double[12];
-	uint32_t val_uint[4];
-} gsDataSet_0x21;
-
-typedef struct _data_set_0x22 {
-	double val_double[12];
-	uint32_t val_uint[4];
-} gsDataSet_0x22;
+typedef struct gs_0x22 {
+    uint16_t lenghth, msg_type;
+    uint32_t checksum;
+	uint32_t nsat;
+    gs_0x22_sat *sat; 
+} gs_0x22;
 
 #endif
 

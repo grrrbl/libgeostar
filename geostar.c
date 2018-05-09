@@ -1,25 +1,17 @@
 #include "geostar.h"
 #define DEBUG
-const char *MSG_BEGIN = "GEOSr2PS";
+const char *MSG_BEGIN = "GEOSr3PS";
 
-void gsRngbInitialize(ringbuffer_t *ringbuffer)
-{
-	ringbuffer->readIndex = 0;
-	ringbuffer->writeIndex = 0;
-	ringbuffer->dsPos[0] = -1;
-}
-
-/* new version of init... */
 ringbuffer_t* 
 gsRngbInit(void)
 {
     ringbuffer_t *rngb = malloc(sizeof(*rngb)); 
     if(rngb != NULL)
       {
-        rngb->readIndex = 0;
+        rngb->readIndex  = 0;
 	    rngb->writeIndex = 0;
-        rngb->dsNmbRead = 0;
-        rngb->dsNmbHead = 0;
+        rngb->dsNmbRead  = 0;
+        rngb->dsNmbHead  = 0;
 	    for(int i = 0;i < sizeof(rngb->dsPos);i++)
           rngb->dsPos[i] = -1;
 	    for(int i = 0;i < sizeof(rngb->dsType);i++)
@@ -30,7 +22,7 @@ gsRngbInit(void)
     return rngb; 
 }
 
-int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
+int16_t gsRngbAppend(ringbuffer_t *buffer, char word)
 {
 	if(buffer)
 	{
@@ -41,24 +33,27 @@ int8_t gsRngbAppend(ringbuffer_t *buffer, char word)
         int count = 0;
         for(int i = 0; i<7; i++)
             {
-            if(buffer->fifo[buffer->writeIndex - i] == MSG_BEGIN[6-i])
+            if(buffer->writeIndex - i >= 0 &&
+               buffer->fifo[buffer->writeIndex - i] == MSG_BEGIN[6-i])
                 count++;
             }
-		if (count > 5)
+		if (count > 5 && buffer->writeIndex - 6 >= 0)
+            {
             buffer->dsPos[buffer->dsNmbHead] = buffer->writeIndex - 6;
-            //buffer->dsNmbHead = (buffer->dsNmbHead + 1) % 5;
+            }
         }
     
     buffer->writeIndex = (buffer->writeIndex + 1) % (FIFO_SIZE + 1);
 	if(buffer->readIndex == buffer->writeIndex)
 		buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
+    return 1;
 	}
     else{
         return -1;
     }
 }
 
-int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
+int16_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
 {   
     if(!buffer)
         return -2;
@@ -76,7 +71,7 @@ int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
         return -1;
 }
 
-int8_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
+int16_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
 {
     if(!rngb)
         return -2;
@@ -90,12 +85,49 @@ int8_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
         return -1;
 }
 
+int16_t gsRngbReadWord(ringbuffer_t *rngb, uint32_t *data)
+{
+    if(!rngb)
+        return -2;
+    if(rngb->readIndex != rngb->writeIndex)
+    {
+        char cache[4];
+        for(int i = 0; i<4; i++)
+        {
+          cache[i] = rngb->fifo[rngb->readIndex];
+          rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
+        }
+        data = (uint32_t)cache;  
+        return 1;
+    }
+    else
+        return 0;
+}
+
+int16_t gsRngbMoveRead(ringbuffer_t *rngb, uint8_t steps)
+{
+    if(!rngb && steps > 255)
+        return -2;
+    for(int i = 0; i < steps; i++)
+      {
+        if(rngb->readIndex != rngb->writeIndex)
+          {
+            rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
+          }
+        else
+            return steps;
+      }
+      return 0;
+}
+
 
 /* start searching for a dataset from the current writeIndex    *
  * return statu:                                                */
 int16_t gsRngbSearch(ringbuffer_t *rngb)
 {
     uint16_t pos = rngb->writeIndex;
+    if(!(pos > 0))
+        return -1; 
     for(int i=0;i<32;i++)
     {
     if(rngb->fifo[pos] == 'G')
@@ -114,8 +146,10 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
         return -2;
 
     /* we want at least the header info */
-    if (rngb->writeIndex <= rngb->dsPos[0] + 16)
+    if (rngb->writeIndex <= rngb->dsPos[rngb->dsNmbHead] + 16)
         return -1;
+    if(rngb->dsPos[rngb->dsNmbHead] < 0)
+        return 0;
 
     /* write data to local cache, so pointer arithemitc doesn't break   *
      * at the end of the ringbuffer (writeIndex - 12 > FIFO_SIZE)       *
@@ -123,7 +157,7 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
      * change teh ringbuffer read position                              */
     char data[18];
     int32_t save_readIndex = rngb->readIndex;
-    rngb->readIndex = rngb->dsPos[0];
+    rngb->readIndex = rngb->dsPos[rngb->dsNmbHead];
     for (int i = 0; i < sizeof(data); i++)
         gsRngbReadChar(rngb, &data[i]);
     rngb->readIndex = save_readIndex;    
@@ -133,15 +167,15 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
     uint16_t lenghth, msg_type;
     lenghth = ((uint16_t *)data)[5];
     msg_type = ((uint16_t *)data)[4];
-    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos[0] - MSG_HEADER - MSG_CHECKSUM) / WORD;
-    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos[0] - MSG_HEADER - MSG_CHECKSUM) % WORD;
+    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) / WORD;
+    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) % WORD;
     if (lenghth > 0 && sum_lenghth < lenghth)
       {
-        rngb->dsLenghth[0] = (int32_t)lenghth;
-        rngb->dsType[0] = (int32_t)msg_type;
+        rngb->dsLenghth[rngb->dsNmbHead] = (int32_t)lenghth;
+        rngb->dsType[rngb->dsNmbHead] = (int32_t)msg_type;
         return 0;
       }
-    else if(lenghth == sum_lenghth && sum_lenghth_mod == 0)
+    else if(lenghth == sum_lenghth && sum_lenghth_mod == 0 )
       {
         rngb->dsNmbHead = (rngb->dsNmbHead + 1) % 5; 
         return 1;
@@ -245,13 +279,25 @@ long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
 	
 	}
 */
-int8_t gsParse0x20(char *dataset, gsDataSet_0x20 *ds0x22)
-{
-	if (dataset == NULL)
-		return -1;
 
-//	fseek(file_p, p->data_position+3*WORD,SEEK_SET); 
-	/*
+int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, char nmbr)
+{
+	if(ds == NULL)
+		return -1;
+    uint32_t *cache;
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, cache);
+    if(cache == NULL)
+        return -2;
+    ds->length = ((uint16_t*)cache)[0];
+    ds->msg_type = ((uint16_t*)cache)[1];
+    gsRngbReadWord(rngb, cache);
+    if(rngb->dsLenghth[nmbr] != *cache)
+        return -2;
+}
+
+
+	/* old parse snippet
 	for(int i = 0; i<5; i++){
 		fread(&(ds0x22->val_double[i]),1,2*WORD,file_p);
 		}
@@ -267,7 +313,6 @@ int8_t gsParse0x20(char *dataset, gsDataSet_0x20 *ds0x22)
 	for(int i = 14; i<16; i++){
 		fread(&(p0->val_double[i]),1,2*WORD,file_p);
 		}*/
-	}
 
 int32_t gsGetNumberDataSet(FILE *file_p){
 	if(file_p == NULL)

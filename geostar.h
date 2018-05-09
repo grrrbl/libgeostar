@@ -20,23 +20,22 @@ typedef struct
 
 /* all functions concering operations with the ringbuffer are labeled gsRngb... *
  * ringbuffer_t *gsRngbInitialize();                                            */
-ringbuffer_t *gsRngbInit(void);
+ringbuffer_t *gsRngbInit();
 void gsRngbInitialize(ringbuffer_t *ringbuffer);
-int8_t gsRngbAppend(ringbuffer_t *buffer, char byte);
-int8_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
-int8_t gsRngbReadChar(ringbuffer_t *buffer, char *data);
+int16_t gsRngbAppend(ringbuffer_t *buffer, char byte);
+int16_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
+int16_t gsRngbReadChar(ringbuffer_t *buffer, char *data);
+int16_t gsRngbReadWord(ringbuffer_t *buffer, uint32_t *word);
+int16_t gsRngbMoveRead(ringbuffer_t *buffer, uint8_t steps);
 int16_t gsRngbSearch(ringbuffer_t *rngb);
 int16_t gsRngbDataSetEnd(ringbuffer_t *rngb);
 int16_t gsRngbChecksum(ringbuffer_t *rngb);
 uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
-int16_t gsRngbReadDataSet();
 
 // all functions concering operations with data sets in the ring buffer are labeled gsParse...
-char gaParseReturnType(char *dataset);
-uint32_t gsGenChecksum(char *dataset,int16_t lenghth);
-int8_t gsParse0x10(char *dataset, gsDataSet_0x10 *ds0x10);
-int8_t gsParse0x20(char *dataset, gsDataSet_0x20 *ds0x20);
-int8_t gsParse0x21(char *dataset, gsDataSet_0x21 *ds0x21);
-int8_t gsParse0x22(char *dataset, gsDataSet_0x22 *ds0x22);
+int gsParse0x10(ringbuffer_t *rnbg, gs_0x10 *ds);
+int gsParse0x20(ringbuffer_t *rnbg, gs_0x20 *ds, char nmbr);
+int gsParse0x21(ringbuffer_t *rnbg, gs_0x21 *ds);
+int gsParse0x22(ringbuffer_t *rnbg, gs_0x22 *ds);
 
 #endif
