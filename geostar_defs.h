@@ -10,6 +10,8 @@
 #define MAX_MESSAGE_LENGHTH 340
 
 #define FIFO_SIZE 1024
+//#define TIME_DIFF 252460800 //difference in unix time to time of geostar
+#define TIME_DIFF 567993600//difference in unix time to time of geostar
 
 typedef struct gs_0x10 {
 } gs_0x10;
@@ -17,31 +19,31 @@ typedef struct gs_0x10 {
 typedef struct gs_0x20 {
     uint16_t length, msg_type;
     uint32_t msg_length;
-	double   position, latitude, longitude, height, geoidal_seperation;
+	uint64_t position, latitude, longitude, height, geoidal_seperation;
 	uint32_t numbers_sv, receiver_status;
-    double   gdop, pdop, tdop, hdop, vdop;
+    uint64_t gdop, pdop, tdop, hdop, vdop;
     uint32_t position_fix_valid_indicator, number_continuous_fixes;
-    double   speed, course;
+    uint64_t speed, course;
     uint32_t checksum;
 } gs_0x20;
 
 typedef struct gs_0x21 {
-    uint16_t lenghth, msg_type;
+    uint16_t length, msg_type;
     uint32_t checksum;
     uint32_t receiver_status_word, receiver_configuration, 
-             uptime, time, empty1, empty2;
+             uptime, time, word5, word6;
 } gs_0x21;
 
 /* consist of two parts, nested */
 typedef struct gs_0x22_sat{
     char sv_number, channel_nr;
     uint16_t carrier_frequency;
-    uint32_t word1, channel_status, snr, 
-             elevation, azimuth;
+    uint32_t word1, word2;
+    float    snr,elevation, azimuth;
 } gs_0x22_sat;
 
 typedef struct gs_0x22 {
-    uint16_t lenghth, msg_type;
+    uint16_t length, msg_type;
     uint32_t checksum;
 	uint32_t nsat;
     gs_0x22_sat *sat; 

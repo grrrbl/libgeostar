@@ -1,4 +1,5 @@
 #include "geostar.h"
+#include <time.h>
 #define DEBUG
 const char *MSG_BEGIN = "GEOSr3PS";
 
@@ -91,13 +92,31 @@ int16_t gsRngbReadWord(ringbuffer_t *rngb, uint32_t *data)
         return -2;
     if(rngb->readIndex != rngb->writeIndex)
     {
-        char cache[4];
         for(int i = 0; i<4; i++)
+        {
+          ((char *)data)[i] = rngb->fifo[rngb->readIndex];
+          rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
+        }
+        return 1;
+    }
+    else
+        return 0;
+}
+
+int16_t 
+gsRngbReadDouble(ringbuffer_t *rngb, uint64_t *data)
+{
+    if(!rngb)
+        return -2;
+    if(rngb->readIndex != rngb->writeIndex)
+    {
+        char cache[8];
+        for(int i = 0; i<8; i++)
         {
           cache[i] = rngb->fifo[rngb->readIndex];
           rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
         }
-        data = (uint32_t)cache;  
+        data = (uint64_t*)cache;  
         return 1;
     }
     else
@@ -259,78 +278,120 @@ gsGenChecksum(char *dataset, int16_t lenghth)
     }
 }
 
-/*
-long int gsParseRawData(gsDataSet * p, FILE *file_p, long int offset){
-	fread(p->header,1,8,file_p);
-	fread(&(p->number),1,2,file_p);
-	fread(&(p->lenght),1,2,file_p);
-	fseek(file_p,p->lenght*WORD,SEEK_CUR);
-	fread(&(p->checksum),1,WORD,file_p);
-	p->data_position = ftell(file_p);
-	return ftell(file_p);
-	}
-*/
-
-/*uint32_t gsCheckChecksum(gsDataSet * p, FILE *file_p ){
-	uint32_t data_field[p->lenght];
-	for(int i; i <= p->lenght;i++){
-		fread(&(data_field[i]),1,WORD,file_p);
-		}
-	
-	}
-*/
-
 int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, char nmbr)
 {
 	if(ds == NULL)
 		return -1;
-    uint32_t *cache;
+    if(rngb->writeIndex == rngb->dsPos[nmbr])
+        return -1;
+    
+    int32_t save_read_index = rngb->readIndex;
+    rngb->readIndex = rngb->dsPos[nmbr];
+
+    uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);
-    gsRngbReadWord(rngb, cache);
-    if(cache == NULL)
+    gsRngbReadWord(rngb, &cache);
+
+    /* change type of data to type of var lenghth (16 bit), skip first  *
+     * bytes with the header titel and set lenghth                      */
+    ds->length = ((uint16_t *)&cache)[1];
+    ds->msg_type = ((uint16_t *)&cache)[0];
+
+    if(rngb->dsLenghth[nmbr] != ds->length)
         return -2;
-    ds->length = ((uint16_t*)cache)[0];
-    ds->msg_type = ((uint16_t*)cache)[1];
-    gsRngbReadWord(rngb, cache);
-    if(rngb->dsLenghth[nmbr] != *cache)
-        return -2;
+
+    //gsRngbReadDouble(rngb, &(ds->position));
+    //gsRngbReadDouble(rngb, &(ds->latitude));
+    //gsRngbReadDouble(rngb, &(ds->longitude));
+    //gsRngbReadDouble(rngb, &(ds->height));
+    //gsRngbReadDouble(rngb, &(ds->geoidal_seperation));
+    //gsRngbReadWord(rngb, &(ds->numbers_sv));
+    //gsRngbReadWord(rngb, &(ds->receiver_status));
+/*  gsRngbReadDouble(rngb, &(ds->gdop));
+    gsRngbReadDouble(rngb, &(ds->tdop));
+    gsRngbReadDouble(rngb, &(ds->hdop));
+    gsRngbReadDouble(rngb, &(ds->vdop));
+    gsRngbReadWord(rngb, &(ds->position_fix_valid_indicator));
+    gsRngbReadWord(rngb, &(ds->number_continuous_fixes));
+    gsRngbReadDouble(rngb, &(ds->speed));
+    gsRngbReadDouble(rngb, &(ds->course));*/
+    rngb->readIndex = save_read_index;  
+    return 0;
 }
 
-
-	/* old parse snippet
-	for(int i = 0; i<5; i++){
-		fread(&(ds0x22->val_double[i]),1,2*WORD,file_p);
-		}
-	for(int i = 0; i<2; i++){
-		fread(&(p0->val_uint[i]),1,WORD,file_p);
-		}
-	for(int i = 7; i<12; i++){
-		fread(&(p0->val_double[i]),1,2*WORD,file_p);
-		}
-	for(int i = 12; i<14; i++){
-		fread(&(p0->val_uint[i]),1,WORD,file_p);
-		}
-	for(int i = 14; i<16; i++){
-		fread(&(p0->val_double[i]),1,2*WORD,file_p);
-		}*/
-
-int32_t gsGetNumberDataSet(FILE *file_p){
-	if(file_p == NULL)
+int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, uint8_t nmbr)
+{
+	if(ds == NULL || nmbr < 0 || nmbr > 5)
 		return -1;
+    if(rngb->writeIndex == rngb->dsPos[nmbr])
+        return 0;
+    rngb->readIndex = rngb->dsPos[nmbr];    
 
-	int32_t ds_count = 0;
-	uint32_t lenght = 0;
-	uint32_t number = 0;
-	size_t ds_read;
+    uint32_t cache;
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, &cache);
 
-	do{
-		fseek(file_p,2*WORD,SEEK_CUR);
-		ds_read = fread(&number,1,2,file_p);
-		fread(&lenght,1,2,file_p);
-		fseek(file_p,lenght*WORD+MSG_CHECKSUM,SEEK_CUR);
-		ds_count++;
-		printf("Nummer code %x \n",number);
-	}while(ds_read > 0);
+    /* change type of data to type of var lenghth (16 bit), skip first  *
+     * bytes with the header titel and set lenghth                      */
+    ds->length = ((uint16_t *)&cache)[1];
+    ds->msg_type = ((uint16_t *)&cache)[0];
 
-	return ds_count;
+    if(rngb->dsLenghth[nmbr] != ds->length)
+        return -2;
+    gsRngbMoveRead(rngb, 3*WORD);
+    gsRngbReadWord(rngb, &cache);
+    ds->uptime = cache;
+    gsRngbReadWord(rngb, &cache);
+    ds->time = cache + TIME_DIFF;
+    gsRngbMoveRead(rngb, 3*WORD);
+
+    return 0;
 }
+
+int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
+{
+	if(ds == NULL || nmbr < 0 || nmbr > 5)
+		return -1;
+    if(rngb->writeIndex == rngb->dsPos[nmbr])
+        return 0;
+    rngb->readIndex = rngb->dsPos[nmbr];    
+
+    uint32_t cache;
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, &cache);
+
+    ds->length = ((uint16_t *)&cache)[1];
+    ds->msg_type = ((uint16_t *)&cache)[0];
+
+    if(rngb->dsLenghth[nmbr] != ds->length)
+        return -2;
+
+    gsRngbReadWord(rngb, &cache);
+    ds->nsat = cache;
+    if(!(ds->nsat > 0))
+        return -1;
+    
+    // allocate memory for the sats file, to keep the code a little dynamic
+    //gs_0x22_sat *sats = malloc(ds->nsat * sizeof(*sats));
+    gs_0x22_sat *sats = calloc(ds->nsat, sizeof(*sats));
+    if(sats == NULL)
+        return -3;
+    ds->sat = sats;
+    
+    for(int i = 0; i < ds->nsat; i++)
+      {
+        gsRngbReadWord(rngb, &cache);
+        ds->sat[i].word1 = cache;
+        gsRngbReadWord(rngb, &cache);
+        ds->sat[i].word2 = cache;
+        gsRngbReadWord(rngb, &cache);
+        ds->sat[i].snr = (float)cache;
+        gsRngbReadWord(rngb, &cache);
+        ds->sat[i].elevation = (float)cache;
+        gsRngbReadWord(rngb, &cache);
+        ds->sat[i].azimuth = (float)cache;
+      }
+    gsRngbMoveRead(rngb, 2*WORD);
+    return 0;
+}
+
