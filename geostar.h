@@ -34,8 +34,8 @@ int16_t gsRngbChecksum(ringbuffer_t *rngb);
 uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
 
 // all functions concering operations with data sets in the ring buffer are labeled gsParse...
-int gsParse0x10(ringbuffer_t *rnbg, gs_0x10 *ds);
-int gsParse0x20(ringbuffer_t *rnbg, gs_0x20 *ds, char nmbr);
+int gsParse0x10(ringbuffer_t *rnbg, gs_0x10 *ds, uint8_t nmbr);
+int gsParse0x20(ringbuffer_t *rnbg, gs_0x20 *ds, uint8_t nmbr);
 int gsParse0x21(ringbuffer_t *rnbg, gs_0x21 *ds, uint8_t nmbr);
 int gsParse0x22(ringbuffer_t *rnbg, gs_0x22 *ds, uint8_t nmbr);
 

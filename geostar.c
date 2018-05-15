@@ -110,13 +110,11 @@ gsRngbReadDouble(ringbuffer_t *rngb, uint64_t *data)
         return -2;
     if(rngb->readIndex != rngb->writeIndex)
     {
-        char cache[8];
         for(int i = 0; i<8; i++)
         {
-          cache[i] = rngb->fifo[rngb->readIndex];
+          ((uint8_t*)data)[i] = rngb->fifo[rngb->readIndex];
           rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
         }
-        data = (uint64_t*)cache;  
         return 1;
     }
     else
@@ -278,7 +276,7 @@ gsGenChecksum(char *dataset, int16_t lenghth)
     }
 }
 
-int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, char nmbr)
+int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
 {
 	if(ds == NULL)
 		return -1;
@@ -300,10 +298,10 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, char nmbr)
     if(rngb->dsLenghth[nmbr] != ds->length)
         return -2;
 
-    //gsRngbReadDouble(rngb, &(ds->position));
-    //gsRngbReadDouble(rngb, &(ds->latitude));
-    //gsRngbReadDouble(rngb, &(ds->longitude));
-    //gsRngbReadDouble(rngb, &(ds->height));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->position));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->latitude));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->longitude));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->heigth));
     //gsRngbReadDouble(rngb, &(ds->geoidal_seperation));
     //gsRngbReadWord(rngb, &(ds->numbers_sv));
     //gsRngbReadWord(rngb, &(ds->receiver_status));
@@ -325,6 +323,7 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, uint8_t nmbr)
 		return -1;
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return 0;
+    int32_t save_read_index = rngb->readIndex;
     rngb->readIndex = rngb->dsPos[nmbr];    
 
     uint32_t cache;
@@ -344,6 +343,7 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, uint8_t nmbr)
     gsRngbReadWord(rngb, &cache);
     ds->time = cache + TIME_DIFF;
     gsRngbMoveRead(rngb, 3*WORD);
+    rngb->readIndex = save_read_index;  
 
     return 0;
 }
@@ -354,6 +354,7 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
 		return -1;
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return 0;
+    int32_t save_read_index = rngb->readIndex;
     rngb->readIndex = rngb->dsPos[nmbr];    
 
     uint32_t cache;
@@ -391,7 +392,7 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
         gsRngbReadWord(rngb, &cache);
         ds->sat[i].azimuth = (float)cache;
       }
-    gsRngbMoveRead(rngb, 2*WORD);
+    rngb->readIndex = save_read_index;  
     return 0;
 }
 
