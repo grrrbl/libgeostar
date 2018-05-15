@@ -19,7 +19,7 @@ typedef struct gs_0x10 {
 typedef struct gs_0x20 {
     uint16_t length, msg_type;
     uint32_t msg_length;
-	uint64_t position, latitude, longitude, height, geoidal_seperation;
+	double position, latitude, longitude, heigth, geoidal_seperation;
 	uint32_t numbers_sv, receiver_status;
     uint64_t gdop, pdop, tdop, hdop, vdop;
     uint32_t position_fix_valid_indicator, number_continuous_fixes;
