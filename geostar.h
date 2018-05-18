@@ -5,6 +5,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "geostar_defs.h"
+
+// return codes for functions
+enum return_code
+  {
+    ERR_RNGB_EMPTY = -4,
+    ERR_DS_SIZE = -3,
+    ERR_NO_START_POINT = -2,
+    DS_CHKSM_MISMATCH = -1,
+    DS_COMPLETE = 1,
+  };
 	
 // definitions for ringbuffer
 typedef struct 
