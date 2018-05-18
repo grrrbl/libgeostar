@@ -11,7 +11,7 @@
 
 #define FIFO_SIZE 1024
 //#define TIME_DIFF 252460800 //difference in unix time to time of geostar
-#define TIME_DIFF 567993600//difference in unix time to time of geostar
+#define TIME_DIFF 1199145600//difference in unix time to time of geostar
 
 typedef struct gs_0x10 {
 } gs_0x10;

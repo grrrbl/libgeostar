@@ -201,6 +201,17 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
         return -1;
 }
 
+uint8_t gsRngbCurhead(ringbuffer_t *rngb)
+  {
+    if(rngb->dsNmbHead < 1)
+        return 4;
+    else   
+      {
+        uint8_t ret = rngb->dsNmbHead - 1;
+        return ret;
+      }
+  }
+
 /* this function is splitted from search end because more data operations are needed    *
  * return -3: missing pointer to ringbuffer;                                            *
  * return -2: found no starting point for data evaluation;                              *

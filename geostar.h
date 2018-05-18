@@ -31,7 +31,6 @@ typedef struct
 /* all functions concering operations with the ringbuffer are labeled gsRngb... *
  * ringbuffer_t *gsRngbInitialize();                                            */
 ringbuffer_t *gsRngbInit();
-void gsRngbInitialize(ringbuffer_t *ringbuffer);
 int16_t gsRngbAppend(ringbuffer_t *buffer, char byte);
 int16_t gsRngbRead(ringbuffer_t *buffer, char *dataset);
 int16_t gsRngbReadChar(ringbuffer_t *buffer, char *data);
@@ -41,6 +40,9 @@ int16_t gsRngbMoveRead(ringbuffer_t *buffer, uint8_t steps);
 int16_t gsRngbSearch(ringbuffer_t *rngb);
 int16_t gsRngbDataSetEnd(ringbuffer_t *rngb);
 int16_t gsRngbChecksum(ringbuffer_t *rngb);
+uint8_t gsRngbCurhead(ringbuffer_t *rngb);
+
+// util function
 uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
 
 // all functions concering operations with data sets in the ring buffer are labeled gsParse...
