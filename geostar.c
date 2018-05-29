@@ -287,6 +287,33 @@ gsGenChecksum(char *dataset, int16_t lenghth)
     }
 }
 
+uint32_t gsConvertDouble(void *in, void *out)
+  {
+    uint32_t *fp = (uint32_t *)out;
+    uint64_t *dp = (uint64_t *)in;
+    uint32_t fs, fm, fe;
+    uint64_t d, ds, dm, de;
+    d = *dp;
+    int exp;
+
+    ds = d & 0x8000000000000000u;
+    de = d & 0x7FF0000000000000u;
+    dm = d & 0x000FFFFFFFFFFFFFu;
+    
+    fs = (uint16_t)(ds >> 32);
+    exp = (int)(de >> 52) - 1023 + 127;
+    
+    fe = (uint32_t)(exp << 23 );
+    fm = (uint32_t)(dm >> 29);
+    
+    //rounding, funkti9niert nicht
+//    if( dm & 0x0000000010000000u)
+//        *fp = (fs | fe | fm) + (uint32_t) 1u;
+//    else 
+        *fp = (fs | fe | fm);
+        
+  }
+
 int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
 {
 	if(ds == NULL)

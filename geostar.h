@@ -44,6 +44,7 @@ uint8_t gsRngbCurhead(ringbuffer_t *rngb);
 
 // util function
 uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
+uint32_t gsConvertDouble(void *in, void *out);
 
 // all functions concering operations with data sets in the ring buffer are labeled gsParse...
 int gsParse0x10(ringbuffer_t *rnbg, gs_0x10 *ds, uint8_t nmbr);
