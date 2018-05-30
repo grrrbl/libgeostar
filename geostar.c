@@ -6,7 +6,9 @@ const char *MSG_BEGIN = "GEOSr3PS";
 ringbuffer_t* 
 gsRngbInit(void)
 {
+    // allocate memory 
     ringbuffer_t *rngb = malloc(sizeof(*rngb)); 
+    // if available initialize vars as zero
     if(rngb != NULL)
       {
         rngb->readIndex  = 0;
@@ -28,7 +30,7 @@ int16_t gsRngbAppend(ringbuffer_t *buffer, char word)
 	if(buffer)
 	{
 	buffer->fifo[buffer->writeIndex] = word;
-	//check for DS begin
+	//check for begin of dataset
 	if ( word == 'P')
         {
         int count = 0;
@@ -317,10 +319,12 @@ uint32_t gsConvertDouble(void *in, void *out)
 int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
 {
 	if(ds == NULL)
-		return -1;
+		return -2;
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return -1;
     
+    /* save current read index and set start position of the dataset    *
+       in the ringbuffer                                                */
     int32_t save_read_index = rngb->readIndex;
     rngb->readIndex = rngb->dsPos[nmbr];
 
@@ -341,16 +345,22 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->longitude));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->heigth));
     //gsRngbReadDouble(rngb, &(ds->geoidal_seperation));
-    //gsRngbReadWord(rngb, &(ds->numbers_sv));
-    //gsRngbReadWord(rngb, &(ds->receiver_status));
-/*  gsRngbReadDouble(rngb, &(ds->gdop));
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, &(ds->numbers_sv));
+    gsRngbReadWord(rngb, &(ds->receiver_status));
+    /* skip for now */
+    gsRngbMoveRead(rngb, 10*WORD);
+    /*
+    gsRngbReadDouble(rngb, &(ds->gdop));
+    gsRngbReadDouble(rngb, &(ds->pdop));
     gsRngbReadDouble(rngb, &(ds->tdop));
     gsRngbReadDouble(rngb, &(ds->hdop));
     gsRngbReadDouble(rngb, &(ds->vdop));
-    gsRngbReadWord(rngb, &(ds->position_fix_valid_indicator));
-    gsRngbReadWord(rngb, &(ds->number_continuous_fixes));
-    gsRngbReadDouble(rngb, &(ds->speed));
-    gsRngbReadDouble(rngb, &(ds->course));*/
+    */
+    gsRngbReadWord(rngb, &(ds->position_fix));
+    gsRngbReadWord(rngb, &(ds->continuous_fixes));
+    //gsRngbReadDouble(rngb, &(ds->speed));
+    //gsRngbReadDouble(rngb, &(ds->course));
     rngb->readIndex = save_read_index;  
     return 0;
 }

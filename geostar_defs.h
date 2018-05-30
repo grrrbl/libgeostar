@@ -22,7 +22,7 @@ typedef struct gs_0x20 {
 	double position, latitude, longitude, heigth, geoidal_seperation;
 	uint32_t numbers_sv, receiver_status;
     uint64_t gdop, pdop, tdop, hdop, vdop;
-    uint32_t position_fix_valid_indicator, number_continuous_fixes;
+    uint32_t position_fix, continuous_fixes;
     uint64_t speed, course;
     uint32_t checksum;
 } gs_0x20;
