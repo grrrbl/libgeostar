@@ -289,24 +289,28 @@ gsGenChecksum(char *dataset, int16_t lenghth)
     }
 }
 
+uint32_t gsConvertRad(float *rad, float *deg)
+  {
+    *deg = *rad * 57.2957795130823208;
+  }
+
 uint32_t gsConvertDouble(void *in, void *out)
   {
     uint32_t *fp = (uint32_t *)out;
     uint64_t *dp = (uint64_t *)in;
     uint32_t fs, fm, fe;
-    uint64_t d, ds, dm, de;
-    d = *dp;
-    int exp;
+    uint64_t ds, dm, de;
+    int32_t exp;
 
-    ds = d & 0x8000000000000000u;
-    de = d & 0x7FF0000000000000u;
-    dm = d & 0x000FFFFFFFFFFFFFu;
+    ds = *dp & 0x8000000000000000u;
+    de = *dp & 0x7FF0000000000000u;
+    dm = *dp & 0x000FFFFFFFFFFFFFu;
     
-    fs = (uint16_t)(ds >> 32);
-    exp = (int)(de >> 52) - 1023 + 127;
+    fs = (uint16_t)(ds >> 32LL);
+    exp = (int32_t)(de >> 52LL) - 1023 + 127;
     
-    fe = (uint32_t)(exp << 23 );
-    fm = (uint32_t)(dm >> 29);
+    fe = (uint32_t)(exp << 23LL );
+    fm = (uint32_t)(dm >> 29LL);
     
     //rounding, funkti9niert nicht
 //    if( dm & 0x0000000010000000u)
