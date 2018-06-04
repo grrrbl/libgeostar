@@ -421,11 +421,11 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, int8_t nmbr)
     ds->length = ((uint16_t *)&cache)[1];
     ds->msg_type = ((uint16_t *)&cache)[0];
 
-    if(rngb->dsLenghth[nmbr] != ds->length)
+    if(rngb->dsLenghth[dsNmbr] != ds->length)
         return -2;
 
     gsRngbMoveRead(rngb, 2*WORD);
-    gsRngbReadWord(rngb, (uint32_t*)&(ds->uptime));
+    gsRngbReadWord(rngb, &(ds->uptime));
     gsRngbReadWord(rngb, (uint32_t*)&(ds->time));
     ds->time =+ TIME_DIFF;
     gsRngbMoveRead(rngb, 2*WORD);
@@ -461,6 +461,7 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
       {
       //have to substract 1 to read the last finished dataset
         dsNmbr = rngb->dsNmbHead  - 1;
+        rngb->readIndex = rngb->dsPos[dsNmbr];
       }
 
     uint32_t cache;
