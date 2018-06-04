@@ -1,6 +1,8 @@
 #include "geostar.h"
 #include <time.h>
 #define DEBUG
+#define RngbNmbSave 3
+
 const char *MSG_BEGIN = "GEOSr3PS";
 
 ringbuffer_t* 
@@ -13,7 +15,6 @@ gsRngbInit(void)
       {
         rngb->readIndex  = 0;
 	    rngb->writeIndex = 0;
-        rngb->dsNmbRead  = 0;
         rngb->dsNmbHead  = 0;
 	    for(int i = 0;i < sizeof(rngb->dsPos);i++)
           rngb->dsPos[i] = -1;
@@ -320,17 +321,32 @@ uint32_t gsConvertDouble(void *in, void *out)
         
   }
 
-int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
+int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, int8_t nmbr)
 {
 	if(ds == NULL)
 		return -2;
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return -1;
-    
+
+    //save number dataset in function
+    int8_t dsNmbr;
+    int32_t save_read_index;
+
+    // change read Index. Uncomment here and at the end to disable.
+    if(nmbr > -1)
+      {  
+        save_read_index = rngb->readIndex;
+        rngb->readIndex = rngb->dsPos[nmbr];
+        dsNmbr = nmbr;
+      }
+    else
+      {
+      //have to substract 1 to read the last finisched dataset
+      dsNmbr = rngb->dsNmbHead - 1;
+      rngb->readIndex = rngb->dsPos[dsNmbr];
+      }
     /* save current read index and set start position of the dataset    *
        in the ringbuffer                                                */
-    int32_t save_read_index = rngb->readIndex;
-    rngb->readIndex = rngb->dsPos[nmbr];
 
     uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);
@@ -341,15 +357,14 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
     ds->length = ((uint16_t *)&cache)[1];
     ds->msg_type = ((uint16_t *)&cache)[0];
 
-    if(rngb->dsLenghth[nmbr] != ds->length)
+    if(rngb->dsLenghth[dsNmbr] != ds->length)
         return -2;
 
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->position));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->latitude));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->longitude));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->heigth));
-    //gsRngbReadDouble(rngb, &(ds->geoidal_seperation));
-    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->geoidal_seperation));
     gsRngbReadWord(rngb, &(ds->numbers_sv));
     gsRngbReadWord(rngb, &(ds->receiver_status));
     /* skip for now */
@@ -363,20 +378,39 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, uint8_t nmbr)
     */
     gsRngbReadWord(rngb, &(ds->position_fix));
     gsRngbReadWord(rngb, &(ds->continuous_fixes));
-    //gsRngbReadDouble(rngb, &(ds->speed));
-    //gsRngbReadDouble(rngb, &(ds->course));
-    rngb->readIndex = save_read_index;  
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->speed));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->course));
+
+    if(nmbr > -1)
+        rngb->readIndex = save_read_index;  
+
     return 0;
 }
 
-int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, uint8_t nmbr)
+int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, int8_t nmbr)
 {
-	if(ds == NULL || nmbr < 0 || nmbr > 5)
+	if(ds == NULL || nmbr > 5)
 		return -1;
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return 0;
-    int32_t save_read_index = rngb->readIndex;
-    rngb->readIndex = rngb->dsPos[nmbr];    
+
+    //save number dataset in function
+    int8_t dsNmbr;
+    int32_t save_read_index;
+
+    // if specific read index, read this dataset, else read the last on stack
+    if(nmbr > -1)
+      {  
+        save_read_index = rngb->readIndex;
+        rngb->readIndex = rngb->dsPos[nmbr];
+        dsNmbr = nmbr;
+      }
+    else
+      {
+        //have to substract 1 to read the last finished dataset
+        dsNmbr = rngb->dsNmbHead  - 1;
+        rngb->readIndex = rngb->dsPos[dsNmbr];
+      }
 
     uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);
@@ -389,25 +423,45 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, uint8_t nmbr)
 
     if(rngb->dsLenghth[nmbr] != ds->length)
         return -2;
-    gsRngbMoveRead(rngb, 3*WORD);
-    gsRngbReadWord(rngb, &cache);
-    ds->uptime = cache;
-    gsRngbReadWord(rngb, &cache);
-    ds->time = cache + TIME_DIFF;
-    gsRngbMoveRead(rngb, 3*WORD);
-    rngb->readIndex = save_read_index;  
+
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, (uint32_t*)&(ds->uptime));
+    gsRngbReadWord(rngb, (uint32_t*)&(ds->time));
+    ds->time =+ TIME_DIFF;
+    gsRngbMoveRead(rngb, 2*WORD);
+
+    if(nmbr > -1)
+        rngb->readIndex = save_read_index;  
 
     return 0;
 }
 
-int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
+// dataset 0x22 has 4 + n*NSat words 
+int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
 {
-	if(ds == NULL || nmbr < 0 || nmbr > 5)
+    //save number dataset in function
+    int8_t dsNmbr;
+    int32_t save_read_index;
+
+    //check if nmbr is in a reasonable range 
+	if(ds == NULL || nmbr > RngbNmbSave)
 		return -1;
+    //check we are not at the head of the stack
     if(rngb->writeIndex == rngb->dsPos[nmbr])
         return 0;
-    int32_t save_read_index = rngb->readIndex;
-    rngb->readIndex = rngb->dsPos[nmbr];    
+    
+    // if specigic read index, read this dataset, else read the last on stack
+    if(nmbr > -1)
+      {  
+        save_read_index = rngb->readIndex;
+        rngb->readIndex = rngb->dsPos[nmbr];
+        dsNmbr = nmbr;
+      }
+    else
+      {
+      //have to substract 1 to read the last finished dataset
+        dsNmbr = rngb->dsNmbHead  - 1;
+      }
 
     uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);
@@ -416,11 +470,11 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
     ds->length = ((uint16_t *)&cache)[1];
     ds->msg_type = ((uint16_t *)&cache)[0];
 
-    if(rngb->dsLenghth[nmbr] != ds->length)
+    if(rngb->dsLenghth[dsNmbr] != ds->length)
         return -2;
 
-    gsRngbReadWord(rngb, &cache);
-    ds->nsat = cache;
+    gsRngbReadWord(rngb, (uint32_t*)&(ds->nsat));
+
     if(!(ds->nsat > 0))
         return -1;
     
@@ -433,18 +487,17 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, uint8_t nmbr)
     
     for(int i = 0; i < ds->nsat; i++)
       {
-        gsRngbReadWord(rngb, &cache);
-        ds->sat[i].word1 = cache;
-        gsRngbReadWord(rngb, &cache);
-        ds->sat[i].word2 = cache;
-        gsRngbReadWord(rngb, &cache);
-        ds->sat[i].snr = (float)cache;
-        gsRngbReadWord(rngb, &cache);
-        ds->sat[i].elevation = (float)cache;
-        gsRngbReadWord(rngb, &cache);
-        ds->sat[i].azimuth = (float)cache;
+        gsRngbReadWord(rngb, (uint32_t*)&(sats->word1));
+        gsRngbReadWord(rngb, (uint32_t*)&(sats->word2));
+        gsRngbReadWord(rngb, (uint32_t*)&(sats->snr));
+        gsRngbReadWord(rngb, (uint32_t*)&(sats->elevation));
+        gsRngbReadWord(rngb, (uint32_t*)&(sats->azimuth));
+        sats++;
       }
-    rngb->readIndex = save_read_index;  
+    
+    if(nmbr > -1)
+        rngb->readIndex = save_read_index;  
+
     return 0;
 }
 
