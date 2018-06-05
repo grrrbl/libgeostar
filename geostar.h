@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include "geostar_defs.h"
 
+#define MAX_NUMBER_SATS 40
+
 // return codes for functions
 enum return_code
   {

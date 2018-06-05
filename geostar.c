@@ -140,25 +140,6 @@ int16_t gsRngbMoveRead(ringbuffer_t *rngb, uint8_t steps)
       return 0;
 }
 
-
-/* start searching for a dataset from the current writeIndex    *
- * return statu:                                                */
-int16_t gsRngbSearch(ringbuffer_t *rngb)
-{
-    uint16_t pos = rngb->writeIndex;
-    if(!(pos > 0))
-        return -1; 
-    for(int i=0;i<32;i++)
-    {
-    if(rngb->fifo[pos] == 'G')
-        if(rngb->fifo[pos + 1] == 'E')
-            return pos;
-    pos = pos++ % (FIFO_SIZE + 1);
-    return pos;
-	}
-    return -1;
-}
-
 int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
 {
     /* check if it's save to run function                               */
@@ -203,17 +184,6 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
     else
         return -1;
 }
-
-uint8_t gsRngbCurhead(ringbuffer_t *rngb)
-  {
-    if(rngb->dsNmbHead < 1)
-        return 4;
-    else   
-      {
-        uint8_t ret = rngb->dsNmbHead - 1;
-        return ret;
-      }
-  }
 
 /* this function is splitted from search end because more data operations are needed    *
  * return -3: missing pointer to ringbuffer;                                            *
@@ -315,7 +285,7 @@ uint32_t gsConvertDouble(void *in, void *out)
     
     //rounding, funkti9niert nicht
 //    if( dm & 0x0000000010000000u)
-//        *fp = (fs | fe | fm) + (uint32_t) 1u;
+//        *fp = (fs | fe | fm) + 1uLL;
 //    else 
         *fp = (fs | fe | fm);
         
@@ -341,13 +311,14 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, int8_t nmbr)
       }
     else
       {
-      //have to substract 1 to read the last finisched dataset
-      dsNmbr = rngb->dsNmbHead - 1;
+      /* have to substract 1 to read the last finisched dataset,       *
+         otherwise we end at the current read head                     */
+      dsNmbr = --rngb->dsNmbHead;
       rngb->readIndex = rngb->dsPos[dsNmbr];
       }
+
     /* save current read index and set start position of the dataset    *
        in the ringbuffer                                                */
-
     uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);
     gsRngbReadWord(rngb, &cache);
@@ -408,7 +379,7 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, int8_t nmbr)
     else
       {
         //have to substract 1 to read the last finished dataset
-        dsNmbr = rngb->dsNmbHead  - 1;
+        dsNmbr = --rngb->dsNmbHead;
         rngb->readIndex = rngb->dsPos[dsNmbr];
       }
 
@@ -423,11 +394,16 @@ int gsParse0x21(ringbuffer_t *rngb, gs_0x21 *ds, int8_t nmbr)
 
     if(rngb->dsLenghth[dsNmbr] != ds->length)
         return -2;
-
-    gsRngbMoveRead(rngb, 2*WORD);
-    gsRngbReadWord(rngb, &(ds->uptime));
+    
+    // according to manual here should be a shift of two words, but only
+    // 3 works.
+    gsRngbMoveRead(rngb, 3*WORD);
+    gsRngbReadWord(rngb, (uint32_t*)&(ds->uptime));
     gsRngbReadWord(rngb, (uint32_t*)&(ds->time));
-    ds->time =+ TIME_DIFF;
+    /* convert time from geostar time to unix time by adding diff   *
+     * (2008 - 1970) secs                                           */
+    ds->time += TIME_DIFF;
+    // skip next to words to exit clean
     gsRngbMoveRead(rngb, 2*WORD);
 
     if(nmbr > -1)
@@ -479,8 +455,13 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
     if(!(ds->nsat > 0))
         return -1;
     
-    // allocate memory for the sats file, to keep the code a little dynamic
-    //gs_0x22_sat *sats = malloc(ds->nsat * sizeof(*sats));
+    /* allocate memory for the sats file, to keep the code a little *
+     * dynamic gs_0x22_sat *sats = malloc(ds->nsat * sizeof(*sats)) *
+     * abort if there are more than MAX_NUMBER_SATS to prevent      *
+     * allocating kind of infinie memory and crash                  */
+
+    if(sats > MAX_NUMBER_SATS)
+        return -3;
     gs_0x22_sat *sats = calloc(ds->nsat, sizeof(*sats));
     if(sats == NULL)
         return -3;
