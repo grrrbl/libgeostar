@@ -10,10 +10,21 @@
 #define MAX_MESSAGE_LENGHTH 340
 
 #define FIFO_SIZE 1024
-//#define TIME_DIFF 252460800 //difference in unix time to time of geostar
 #define TIME_DIFF 1199145600//difference in unix time to time of geostar
 
+typedef struct gs_0x10_sat {
+    uint32_t word1;
+    float snr;
+    double pseudorange, pseudorange_rate, adr, carrier_phase;
+    float pseudorange_error_estimate, pseudorange_rate_error_estimate;
+    float pseudorange_residuals, pseudorange_rate_residuals;
+} gs_0x10_sat; 
+
 typedef struct gs_0x10 {
+    uint16_t length, msg_type;
+    double time;
+    int32_t number_cycles, number_svs;
+    gs_0x10_sat *sat; 
 } gs_0x10;
 
 typedef struct gs_0x20 {

@@ -57,24 +57,6 @@ int16_t gsRngbAppend(ringbuffer_t *buffer, char word)
     }
 }
 
-int16_t gsRngbRead(ringbuffer_t *buffer, char *dataset)
-{   
-    if(!buffer)
-        return -2;
-
-    uint8_t count = 0;
-    if (buffer->readIndex != buffer->writeIndex){   
-        while(buffer->readIndex != buffer->writeIndex || count < sizeof(dataset))
-		{
-            dataset[count] = buffer->fifo[buffer->readIndex];
-            buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
-            count++;
-		}
-        return count;
-    } else
-        return -1;
-}
-
 int16_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
 {
     if(!rngb)
@@ -83,7 +65,7 @@ int16_t gsRngbReadChar(ringbuffer_t *rngb, char *data)
     {
         *data = rngb->fifo[rngb->readIndex];
         rngb->readIndex = (rngb->readIndex + 1) % (FIFO_SIZE + 1);
-        return 1;
+        return 0;
     }
     else
         return -1;
@@ -291,6 +273,50 @@ uint32_t gsConvertDouble(void *in, void *out)
         
   }
 
+int gsParse0x10(ringbuffer_t *rngb, gs_0x10 *ds, int8_t nmbr)
+{
+	if(ds == NULL)
+		return -2;
+    if(rngb->writeIndex == rngb->dsPos[nmbr])
+        return -1;
+
+    //save number dataset in function
+    int8_t dsNmbr;
+    int32_t save_read_index;
+
+    // change read Index. Uncomment here and at the end to disable.
+    if(nmbr > -1)
+      {  
+        save_read_index = rngb->readIndex;
+        rngb->readIndex = rngb->dsPos[nmbr];
+        dsNmbr = nmbr;
+      }
+    else
+      {
+      /* have to substract 1 to read the last finisched dataset,       *
+         otherwise we end at the current read head                     */
+      dsNmbr = --rngb->dsNmbHead;
+      rngb->readIndex = rngb->dsPos[dsNmbr];
+      }
+
+    /* save current read index and set start position of the dataset    *
+       in the ringbuffer                                                */
+    uint32_t cache;
+    gsRngbMoveRead(rngb, 2*WORD);
+    gsRngbReadWord(rngb, &cache);
+
+    /* change type of data to type of var lenghth (16 bit), skip first  *
+     * bytes with the header titel and set lenghth                      */
+    ds->length = ((uint16_t *)&cache)[1];
+    ds->msg_type = ((uint16_t *)&cache)[0];
+
+
+    if(nmbr > -1)
+        rngb->readIndex = save_read_index;  
+
+    return 0;
+}
+
 int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, int8_t nmbr)
 {
 	if(ds == NULL)
@@ -460,7 +486,7 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
      * abort if there are more than MAX_NUMBER_SATS to prevent      *
      * allocating kind of infinie memory and crash                  */
 
-    if(sats > MAX_NUMBER_SATS)
+    if(ds->nsat > MAX_NUMBER_SATS)
         return -3;
     gs_0x22_sat *sats = calloc(ds->nsat, sizeof(*sats));
     if(sats == NULL)
