@@ -509,3 +509,28 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
     return 0;
 }
 
+int gsParseGetTime(ringbuffer_t *rngb, time_t *time, uint32_t *uptime)
+{
+    int nmbr = --rngb->dsNmbHead;
+	if(rngb == NULL)
+		return -5;
+    if(rngb->writeIndex == rngb->dsPos[nmbr])
+        return -1;
+
+    // if specific read index, read this dataset, else read the last on stack
+    int32_t save_read_index = rngb->readIndex;
+    rngb->readIndex = rngb->dsPos[nmbr];
+    rngb->readIndex = rngb->dsPos[nmbr];
+
+    gsRngbMoveRead(rngb, 6*WORD);
+    gsRngbReadWord(rngb, (uint32_t*)uptime);
+    gsRngbReadWord(rngb, (uint32_t*)time);
+    /* convert time from geostar time to unix time by adding diff   *
+     * (2008 - 1970) secs                                           */
+    *time = *time + TIME_DIFF;
+    // skip next to words to exit clean
+    rngb->readIndex = save_read_index;  
+
+    return 0;
+}
+

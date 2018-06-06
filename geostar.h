@@ -53,4 +53,6 @@ int gsParse0x20(ringbuffer_t *rnbg, gs_0x20 *ds, int8_t nmbr);
 int gsParse0x21(ringbuffer_t *rnbg, gs_0x21 *ds, int8_t nmbr);
 int gsParse0x22(ringbuffer_t *rnbg, gs_0x22 *ds, int8_t nmbr);
 
+int gsParseGetTime(ringbuffer_t *rnbg, time_t *time_var, uint32_t *uptime);
+
 #endif
