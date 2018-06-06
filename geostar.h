@@ -6,15 +6,34 @@
 #include <stdint.h>
 #include "geostar_defs.h"
 
+// size of ringbuffer in bytes
+#define FIFO_SIZE 1024
+
+// human readable length descriptions
+#define WORD 4
+#define MSG_CHECKSUM 4
+#define MSG_HEADER 12
+
+// limits
+#define MAX_MESSAGE_LENGHTH 340
 #define MAX_NUMBER_SATS 40
+
+// human readable names for dataset types
+#define RAW_MEASUREMENT 0x10
+#define SVS_IN_VIEW 0x22
+#define BASIC_DATA_SET 0x20
+
+//difference between unix time to time of geostar
+#define TIME_DIFF 1199145600
 
 // return codes for functions
 enum return_code
   {
-    ERR_RNGB_EMPTY = -4,
+    ERR_NULL_POINTER = -10,
     ERR_DS_SIZE = -3,
     ERR_NO_START_POINT = -2,
     DS_CHKSM_MISMATCH = -1,
+    OK = 0,
     DS_COMPLETE = 1,
   };
 	
@@ -54,5 +73,53 @@ int gsParse0x21(ringbuffer_t *rnbg, gs_0x21 *ds, int8_t nmbr);
 int gsParse0x22(ringbuffer_t *rnbg, gs_0x22 *ds, int8_t nmbr);
 
 int gsParseGetTime(ringbuffer_t *rnbg, time_t *time_var, uint32_t *uptime);
+
+typedef struct gs_0x10_sat {
+    uint32_t word1;
+    float snr;
+    double pseudorange, pseudorange_rate, adr, carrier_phase;
+    float pseudorange_error_estimate, pseudorange_rate_error_estimate;
+    float pseudorange_residuals, pseudorange_rate_residuals;
+} gs_0x10_sat; 
+
+typedef struct gs_0x10 {
+    uint16_t length, msg_type;
+    double time;
+    int32_t number_cycles, number_svs;
+    gs_0x10_sat *sat; 
+} gs_0x10;
+
+typedef struct gs_0x20 {
+    uint16_t length, msg_type;
+    uint32_t msg_length;
+	double position, latitude, longitude, heigth, geoidal_seperation;
+	uint32_t numbers_sv, receiver_status;
+    uint64_t gdop, pdop, tdop, hdop, vdop;
+    uint32_t position_fix, continuous_fixes;
+    uint64_t speed, course;
+    uint32_t checksum;
+} gs_0x20;
+
+typedef struct gs_0x21 {
+    uint16_t length, msg_type;
+    uint32_t checksum;
+    uint32_t receiver_status_word, receiver_configuration, 
+             uptime, time, word5, word6;
+} gs_0x21;
+
+/* consist of two parts, nested */
+typedef struct gs_0x22_sat{
+    char sv_number, channel_nr;
+    uint16_t carrier_frequency;
+    uint32_t word1, word2;
+    float    snr,elevation, azimuth;
+} gs_0x22_sat;
+
+typedef struct gs_0x22 {
+    uint16_t length, msg_type;
+    uint32_t checksum;
+	uint32_t nsat;
+    gs_0x22_sat *sat; 
+} gs_0x22;
 
 #endif
