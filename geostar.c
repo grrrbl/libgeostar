@@ -1,6 +1,7 @@
 #include "geostar.h"
+#include "debug.h"
 #include <time.h>
-#define DEBUG
+#define DEBUG_LVL 4
 #define RngbNmbSave 3
 
 const char *MSG_BEGIN = "GEOSr3PS";
@@ -28,31 +29,26 @@ gsRngbInit(void)
 
 int16_t gsRngbAppend(ringbuffer_t *buffer, char word)
 {
-	if(buffer)
-	{
-	buffer->fifo[buffer->writeIndex] = word;
+	if(buffer){
+	   buffer->fifo[buffer->writeIndex] = word;
 	//check for begin of dataset
-	if ( word == 'P')
-        {
+	if ( word == 'P'){
         int count = 0;
-        for(int i = 0; i<7; i++)
-            {
+        for(int i = 0; i<7; i++){
             if(buffer->writeIndex - i >= 0 &&
-               buffer->fifo[buffer->writeIndex - i] == MSG_BEGIN[6-i])
+               buffer->fifo[buffer->writeIndex - i] == MSG_BEGIN[6-i]){
                 count++;
             }
+        }
 		if (count > 5 && buffer->writeIndex - 6 >= 0)
-            {
             buffer->dsPos[buffer->dsNmbHead] = buffer->writeIndex - 6;
-            }
         }
     
     buffer->writeIndex = (buffer->writeIndex + 1) % (FIFO_SIZE + 1);
 	if(buffer->readIndex == buffer->writeIndex)
 		buffer->readIndex = (buffer->readIndex + 1) % (FIFO_SIZE + 1);
     return 1;
-	}
-    else{
+	} else {
         return -1;
     }
 }
@@ -138,6 +134,7 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
      * at the end of the ringbuffer (writeIndex - 12 > FIFO_SIZE)       *
      * Save ringbuffer position and reset after reading, so we don't    *
      * change teh ringbuffer read position                              */
+    // modulo about poiunter were more elegant...
     char data[18];
     int32_t save_readIndex = rngb->readIndex;
     rngb->readIndex = rngb->dsPos[rngb->dsNmbHead];
@@ -146,19 +143,19 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
     rngb->readIndex = save_readIndex;    
 
     /* change type of data to type of var lenghth (16 bit), skip first  *
-     * bytes with the header titel and set lenghth                      */
-    uint16_t lenghth, msg_type;
-    lenghth = ((uint16_t *)data)[5];
+     * 32 bytes with the header titel and set lenghth                   */
+    uint16_t length, msg_type;
+    length = ((uint16_t *)data)[5];
     msg_type = ((uint16_t *)data)[4];
-    uint16_t sum_lenghth = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) / WORD;
-    uint16_t sum_lenghth_mod = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) % WORD;
-    if (lenghth > 0 && sum_lenghth < lenghth)
+    uint16_t sum_length = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) / WORD;
+    uint16_t sum_length_mod = (rngb->writeIndex - rngb->dsPos[rngb->dsNmbHead] - MSG_HEADER - MSG_CHECKSUM) % WORD;
+    if (length > 0 && sum_length < length)
       {
-        rngb->dsLenghth[rngb->dsNmbHead] = (int32_t)lenghth;
+        rngb->dsLenghth[rngb->dsNmbHead] = (int32_t)length;
         rngb->dsType[rngb->dsNmbHead] = (int32_t)msg_type;
         return 0;
       }
-    else if(lenghth == sum_lenghth && sum_lenghth_mod == 0 )
+    else if(length == sum_length && sum_length_mod == 0 )
       {
         rngb->dsNmbHead = (rngb->dsNmbHead + 1) % 5; 
         return 1;
@@ -174,72 +171,56 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
  * return  0: checksum mismatch                                                         *
  * return  1: checksum ok, dataset complete                                             */
 
-/* util for gsRngbChecksum */
-uint32_t
-gsRngbGenChecksum(char *msg, int32_t lenghth)
-{
-    if (lenghth < 2){
-        return ((((uint32_t *)msg)[1]) ^ (((uint32_t *)msg)[0]));
-    }
-    return ((((uint32_t *)msg)[lenghth]) ^ (gsRngbGenChecksum(msg, lenghth - 1))); 
-}
-
-
 int16_t
-gsRngbChecksum(ringbuffer_t *rngb)
+gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr)
 {
+    // check if it's save to run
     if(!rngb)
         return -3;
 
-    /* load message into local buffer. msg[] has the lenghth of the message *
-     * plus Header plus one Word to save the transmitted checksum           */
-    int32_t save_readIndex = rngb->readIndex;
-    if(rngb->dsPos[0] < 0)
-        return -2;
-    rngb->readIndex = rngb->dsPos[0];
-    if(!(rngb->dsLenghth[0] > 0))
-        return -2;
-    int32_t msg_lenghth = (rngb->dsLenghth[0] + 5) * WORD;
-    char msg[msg_lenghth];
-#ifdef DEBUG 
-    printf("size %i \n", sizeof(msg));
-    printf("lenghth %i \n", rngb->dsLenghth[0]);
-#endif
-    for(int i = 0; i < rngb->writeIndex; i++)
-        gsRngbReadChar(rngb, &msg[i]);
-    rngb->readIndex = save_readIndex;
+    // save read index
+    int32_t save_readIndex;
+    uint8_t dsNmbr;
+    save_readIndex = rngb->readIndex;
+    if(nmbr > -1){  
+        rngb->readIndex = rngb->dsPos[nmbr];
+        dsNmbr = nmbr;
+    } else {
+        // have to substract 1 to read the last finished dataset
+        dsNmbr = --rngb->dsNmbHead;
+        rngb->readIndex = rngb->dsPos[dsNmbr];
+    }
+    
+    /* skip header, read in first word, loop over message and do an xor *
+     * for each. Number of cyles limited by size of uint8_t             */
+    gsRngbMoveRead(rngb, 3*WORD);
+    uint32_t read_word, checksum_gen;
+    gsRngbReadWord(rngb, &checksum_gen);
+    printf("word 1: %x \n",checksum_gen);
+    uint8_t msg_length = rngb->dsLenghth[dsNmbr] - 1;
+    while(msg_length){
+        gsRngbReadWord(rngb, &read_word);
+            printf("word %x \n",read_word);
+        checksum_gen = checksum_gen ^ read_word;
+        printf("nmbr %d, checksum_gen %x \n",msg_length, checksum_gen);
+        msg_length--;
+    }
 
-    /* compute and compare checksum */
-    if(rngb->dsLenghth[0] > MAX_MESSAGE_LENGHTH)
-        return -1;
-    uint32_t checksum = gsRngbGenChecksum(msg,rngb->dsLenghth[0] + 2);
-    if(checksum == ((uint32_t *)msg)[rngb->dsLenghth[0] + 3] )
-        {
-#ifdef DEBUG
-        printf("checksum: %x\n",checksum);
-#endif
+    /* read in checksum from message    */
+    uint32_t checksum_msg;
+    gsRngbReadWord(rngb, &checksum_msg);
+
+    // compare checksum 
+    if(checksum_gen == checksum_msg){
+        printf("checksum match. msg %x, gen %x \n",checksum_gen, checksum_msg );
         return 1;
-        }
-    else
-        {
-#ifdef DEBUG
-        printf("checksum: %x\n",checksum);
-#endif
+    } else {
+        printf("checksum mismatch. msg %x, gen %x \n",checksum_gen, checksum_msg );
         return 0;
-        }
-}
-
-uint32_t
-gsGenChecksum(char *dataset, int16_t lenghth)
-{
-    if (lenghth > MAX_MESSAGE_LENGHTH || (sizeof(dataset) / 4) < lenghth)
-        return 0;
-    if (lenghth < 2){
-        return (((uint32_t *)dataset)[1] ^ ((uint32_t *)dataset)[0]);
     }
-    else {
-        return ((uint32_t *)dataset)[lenghth] ^ gsGenChecksum(dataset, lenghth - 1); 
-    }
+    
+    // reset read index
+    rngb->readIndex = save_readIndex;
 }
 
 uint32_t gsConvertRad(float *rad, float *deg)
@@ -357,7 +338,7 @@ int gsParse0x20(ringbuffer_t *rngb, gs_0x20 *ds, int8_t nmbr)
     if(rngb->dsLenghth[dsNmbr] != ds->length)
         return -2;
 
-    gsRngbReadDouble(rngb, (uint64_t*)&(ds->position));
+    gsRngbReadDouble(rngb, (uint64_t*)&(ds->position_fix_time));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->latitude));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->longitude));
     gsRngbReadDouble(rngb, (uint64_t*)&(ds->heigth));
@@ -453,18 +434,15 @@ int gsParse0x22(ringbuffer_t *rngb, gs_0x22 *ds, int8_t nmbr)
         return 0;
     
     // if specigic read index, read this dataset, else read the last on stack
-    if(nmbr > -1)
-      {  
+    if(nmbr > -1){  
         save_read_index = rngb->readIndex;
         rngb->readIndex = rngb->dsPos[nmbr];
         dsNmbr = nmbr;
-      }
-    else
-      {
-      //have to substract 1 to read the last finished dataset
+    } else {
+        //have to substract 1 to read the last finished dataset
         dsNmbr = rngb->dsNmbHead  - 1;
         rngb->readIndex = rngb->dsPos[dsNmbr];
-      }
+    }
 
     uint32_t cache;
     gsRngbMoveRead(rngb, 2*WORD);

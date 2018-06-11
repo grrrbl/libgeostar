@@ -16,4 +16,5 @@ and 0x22.
 ## Knowm bugs
 - Checksum check is not properly implemented yet
 - gsParseGetTime gives wrong time values
+- rounding issue with convFloat
 

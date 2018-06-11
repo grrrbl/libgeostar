@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <time.h>
 #include "geostar.h"
-#include "geostar_defs.h"
 #define MY_LENGTH 1610612736
 
 uint64_t byteswap64(uint64_t input) 
@@ -15,10 +14,14 @@ uint64_t byteswap64(uint64_t input)
     return output;
 }
 
-int main(){
+int main(int argc, char *argv[]){
     FILE *file_p;
+  //  printf("enter filename:\n");
+    
+  //  char filename[20];
+  //  scanf("%s", filename);
 //    file_p = fopen("20180418-135518.pr0","rb");
-    file_p = fopen("20180606.LOG","rb");
+    file_p = fopen(argv[1],"rb");
     if (file_p == NULL)
       {
         printf("error opening file");
@@ -60,7 +63,7 @@ int main(){
             gsConvertDouble((void *) &ds0x20.latitude, (void *)&latitude);
             error = gsParse0x20(rngb, &ds0x20, -1);
             printf("ds 0x20: length %i, type %x, return %i\n", ds0x20.length, ds0x20.msg_type, error);
-            printf("ds 0x20: lat %.8f, long %.8f, heigth %.2f\n", latitude, longitude, ds0x20.position);
+            printf("ds 0x20: lat %.8f, long %.8f, heigth %.2f\n", latitude, longitude, ds0x20.position_fix);
             printf("ds 0x20: fix %i \n", (int)ds0x20.position_fix);
             }
 

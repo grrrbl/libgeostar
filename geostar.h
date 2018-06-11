@@ -54,7 +54,7 @@ typedef struct gs_0x10 {
 typedef struct gs_0x20 {
     uint16_t length, msg_type;
     uint32_t msg_length;
-	double position, latitude, longitude, heigth, geoidal_seperation;
+	double position_fix_time, latitude, longitude, heigth, geoidal_seperation;
 	uint32_t numbers_sv, receiver_status;
     uint64_t gdop, pdop, tdop, hdop, vdop;
     uint32_t position_fix, continuous_fixes;
@@ -105,7 +105,7 @@ int16_t gsRngbReadWord(ringbuffer_t *buffer, uint32_t *word);
 int16_t gsRngbReadDouble(ringbuffer_t *rngb, uint64_t *data);
 int16_t gsRngbMoveRead(ringbuffer_t *buffer, uint8_t steps);
 int16_t gsRngbDataSetEnd(ringbuffer_t *rngb);
-int16_t gsRngbChecksum(ringbuffer_t *rngb);
+int16_t gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr);
 
 // util function
 uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
