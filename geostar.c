@@ -191,17 +191,16 @@ gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr)
         rngb->readIndex = rngb->dsPos[dsNmbr];
     }
     
-    /* skip header, read in first word, loop over message and do an xor *
+    /* read in first word, loop over message and do an xor              *
      * for each. Number of cyles limited by size of uint8_t             */
-    gsRngbMoveRead(rngb, 3*WORD);
     uint32_t read_word, checksum_gen;
     gsRngbReadWord(rngb, &checksum_gen);
     printf("word 1: %x \n",checksum_gen);
-    uint8_t msg_length = rngb->dsLenghth[dsNmbr] - 1;
+    uint8_t msg_length = rngb->dsLenghth[dsNmbr] + 2;
     while(msg_length){
         gsRngbReadWord(rngb, &read_word);
             printf("word %x \n",read_word);
-        checksum_gen = checksum_gen ^ read_word;
+        checksum_gen = read_word ^ checksum_gen;
         printf("nmbr %d, checksum_gen %x \n",msg_length, checksum_gen);
         msg_length--;
     }
