@@ -172,11 +172,14 @@ int16_t gsRngbDataSetEnd(ringbuffer_t *rngb)
  * return  1: checksum ok, dataset complete                                             */
 
 int16_t
-gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr)
+gsRngbCheckChecksum(ringbuffer_t *rngb, int8_t nmbr)
 {
     // check if it's save to run
     if(!rngb)
         return -3;
+
+    if(rngb->dsPos[rngb->dsNmbHead] < 0)
+        return -2;
 
     // save read index
     int32_t save_readIndex;
@@ -195,13 +198,10 @@ gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr)
      * for each. Number of cyles limited by size of uint8_t             */
     uint32_t read_word, checksum_gen;
     gsRngbReadWord(rngb, &checksum_gen);
-    printf("word 1: %x \n",checksum_gen);
     uint8_t msg_length = rngb->dsLenghth[dsNmbr] + 2;
     while(msg_length){
         gsRngbReadWord(rngb, &read_word);
-            printf("word %x \n",read_word);
-        checksum_gen = read_word ^ checksum_gen;
-        printf("nmbr %d, checksum_gen %x \n",msg_length, checksum_gen);
+        checksum_gen ^= read_word;
         msg_length--;
     }
 
@@ -211,10 +211,8 @@ gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr)
 
     // compare checksum 
     if(checksum_gen == checksum_msg){
-        printf("checksum match. msg %x, gen %x \n",checksum_gen, checksum_msg );
         return 1;
     } else {
-        printf("checksum mismatch. msg %x, gen %x \n",checksum_gen, checksum_msg );
         return 0;
     }
     

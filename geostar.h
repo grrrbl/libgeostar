@@ -105,10 +105,9 @@ int16_t gsRngbReadWord(ringbuffer_t *buffer, uint32_t *word);
 int16_t gsRngbReadDouble(ringbuffer_t *rngb, uint64_t *data);
 int16_t gsRngbMoveRead(ringbuffer_t *buffer, uint8_t steps);
 int16_t gsRngbDataSetEnd(ringbuffer_t *rngb);
-int16_t gsRngbChecksum(ringbuffer_t *rngb, int8_t nmbr);
+int16_t gsRngbCheckChecksum(ringbuffer_t *rngb, int8_t nmbr);
 
 // util function
-uint32_t gsRngbGenChecksum(char *msg, int32_t lenghth);
 uint32_t gsConvertDouble(void *in, void *out);
 uint32_t gsConvertRad(float *rad, float *deg);
 
