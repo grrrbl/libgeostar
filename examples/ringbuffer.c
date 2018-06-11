@@ -1,7 +1,9 @@
 /****************************************************************
  *                                                              *  
  * simple example that opens a ringbuffer, reads chars from  a  *
- * file stream and append them to the ringbuffer                *
+ * file stream and append them to the ringbuffer. For an        *
+ * implementation it doesn't matte were the data being appended *
+ * comes from                                                   *
  *                                                              *
  ****************************************************************/
 #include <stdio.h>
@@ -31,19 +33,14 @@ int main(){
 
     int file_postion;
     // loop through file untile either READS is exeeded or EOF is reached
-    for(int i = 0; i<READS; i++){
-    // append char to ringbuffer
+    while(file_postion != EOF){
+    // append char to ringbuffer, while loop would be more elegant
         gsRngbAppend(rngb, file_postion = fgetc(file_p));
-        if(file_postion == EOF){
-            printf("end of dataset\n");
-            break;
-          }
-        printf("start position: %d, write position %d,read postion %d \n",
+        printf("      position: %d, write position %d,read postion %d \n",
                rngb->dsPos[rngb->dsNmbHead],rngb->writeIndex,rngb->readIndex);
-
     }
     
-    printf("end position: %d, write: %d,read: %d \n", 
+    printf("  end position: %d, write: %d,read: %d \n", 
             rngb->dsPos[0],rngb->writeIndex,rngb->readIndex);
     fclose(file_p);
 }
